@@ -1,7 +1,5 @@
 // The student changes this check as each stage adds an attack to the same app.
 // Never return tokens, private keys, real names, or note bodies.
-import { readFile } from 'node:fs/promises';
-
 function appUrl(config) {
   let app;
   try {
@@ -90,10 +88,9 @@ export async function runAttackChecks(config) {
     return results;
   }
 
-  // 4·5단계: 학습 DB의 Data API(원본 자료 경로)를 공개용(publishable) 키로 직접 부르면 거부되어야 합니다. 키는 화면 코드에 이미 있는 공개 값입니다.
-  const page = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
-  const publishableKey = /sb_publishable_[A-Za-z0-9_-]+/u.exec(page)?.[0];
-  if (!publishableKey) throw new Error('public/index.html에서 공개용(publishable) 키를 찾지 못했습니다.');
+  // 4·5단계: 학습 DB의 Data API(원본 자료 경로)를 공개용(publishable) 키로 직접 부르면 거부되어야 합니다.
+  // 이 키는 공개용 값이라 저장소에 있어도 되지만, 화면(public) 파일에는 넣지 않습니다. 서버 전용(secret) 키는 절대 넣지 않습니다.
+  const publishableKey = 'sb_publishable_YypPqdXwDsZX5DRL9uP3mA_OHslClU_';
   const dataApi = typeof config.originalApiUrl === 'string' && config.originalApiUrl.startsWith('https://')
     ? config.originalApiUrl
     : new URL('/rest/v1/notes', new URL(config.identityProvider.issuer).origin).href;
@@ -105,6 +102,17 @@ export async function runAttackChecks(config) {
   for (const [attackId, expected, method, url] of direct) {
     const code = await status(app, method, url, { headers: anonHeaders });
     results.push({ attackId, expected, observed: code === 401 || code === 403 ? `요청이 거부됨 (HTTP ${code})` : `거부되지 않음 (HTTP ${code})` });
+  }
+  if (config.step >= 5) {
+    // 5단계: 첫 화면 응답에 Supabase 키가 보이지 않아야 하고, 로그인은 서버 함수가 대신 처리합니다.
+    const pageResponse = await fetch(new URL('/', app), { redirect: 'error', signal: AbortSignal.timeout(10000) });
+    const pageText = await pageResponse.text();
+    const leaked = /sb_(?:publishable|secret)_[A-Za-z0-9_-]{8,}|supabase\.co|eyJ[A-Za-z0-9_-]{12,}\.eyJ/iu.test(pageText);
+    results.push({ attackId: 'page_has_no_supabase_key', expected: '첫 화면 응답에 Supabase 키·저장소 주소가 보이지 않음',
+      observed: leaked ? `첫 화면 응답에 키 또는 저장소 주소로 보이는 문자열이 있음 (HTTP ${pageResponse.status})` : `첫 화면 응답에 키·저장소 주소가 보이지 않음 (HTTP ${pageResponse.status})` });
+    const badLogin = await status(app, 'POST', '/api/login', { body: { email: 'nobody@invalid.test', password: 'wrong-password-for-check' } });
+    results.push({ attackId: 'wrong_password_login', expected: '없는 계정으로 로그인하면 거부됨(401·429)',
+      observed: badLogin === 401 || badLogin === 429 ? `요청이 거부됨 (HTTP ${badLogin})` : `거부되지 않음 (HTTP ${badLogin})` });
   }
   results.push({ attackId: 'a_b_own_note_crud', expected: 'A·B가 각자 자기 메모를 추가·수정·삭제할 수 있음',
     observed: '미실행 (계정 비밀번호가 필요해 자동 점검에서는 보내지 않았고 화면에서 직접 확인함)' });

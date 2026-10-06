@@ -19,6 +19,10 @@ export function deploymentIdentity(env, config) {
       || !/^[A-Z0-9_]{1,80}$/u.test(config.sampleMarker)) {
     throw new Error('배포 식별 정보를 확인할 수 없습니다. Vercel 시스템 환경변수와 1단계 시작 틀을 확인하세요.');
   }
+  // 허용 경로는 설정(aleph.config.json)에 있을 때만 내보냅니다. 형식이 맞는 문자열만 담습니다.
+  const routes = Array.isArray(config.allowedRoutes)
+    ? config.allowedRoutes.filter((route) => typeof route === 'string' && /^[A-Z]{3,7} \/[\w\-./:\[\]]{0,100}$/u.test(route)).slice(0, 50)
+    : [];
   return {
     schema: 'aleph.defense.deployment.v1',
     step: config.step,
@@ -27,5 +31,6 @@ export function deploymentIdentity(env, config) {
     publicAppUrl: `https://${host.toLowerCase()}`,
     judgeIssuer: config.judgeIssuer,
     sampleMarker: config.sampleMarker,
+    ...(routes.length ? { allowedRoutes: routes } : {}),
   };
 }
