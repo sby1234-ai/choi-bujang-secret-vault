@@ -1,5 +1,7 @@
 // The student changes this check as each stage adds an attack to the same app.
 // Never return tokens, private keys, real names, or note bodies.
+import { readFile } from 'node:fs/promises';
+
 function appUrl(config) {
   let app;
   try {
@@ -40,7 +42,7 @@ async function status(app, method, path, { headers = {}, body } = {}) {
 const ABSENT_ID = '00000000-0000-4000-8000-000000000000';
 
 export async function runAttackChecks(config) {
-  if (!Number.isInteger(config.step) || config.step < 1 || config.step > 3) {
+  if (!Number.isInteger(config.step) || config.step < 1 || config.step > 4) {
     throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   }
   const app = appUrl(config);
@@ -67,7 +69,7 @@ export async function runAttackChecks(config) {
     ];
   }
 
-  // 3단계: 로그인 없는 요청과 가짜 토큰은 모두 거부되어야 합니다.
+  // 3·4단계: 로그인 없는 요청과 가짜 토큰은 모두 거부되어야 합니다.
   const fakeToken = { Authorization: 'Bearer aaaaaaaaaa.bbbbbbbbbb.cccccccccc' };
   const checks = [
     ['anonymous_list_read', '로그인 없는 목록 조회가 거부됨(401)', 'GET', '/api/notes', {}],
@@ -82,7 +84,29 @@ export async function runAttackChecks(config) {
     const code = await status(app, method, path, options);
     results.push({ attackId, expected, observed: code === 401 ? `요청이 거부됨 (HTTP ${code})` : `거부되지 않음 (HTTP ${code})` });
   }
-  results.push({ attackId: 'normal_a_login_crud', expected: 'A 로그인 뒤 메모 추가·수정·삭제가 됨',
-    observed: '미실행 (A 계정 비밀번호가 필요해 자동 점검에서는 보내지 않았고 화면에서 직접 확인함)' });
+  if (config.step === 3) {
+    results.push({ attackId: 'normal_a_login_crud', expected: 'A 로그인 뒤 메모 추가·수정·삭제가 됨',
+      observed: '미실행 (A 계정 비밀번호가 필요해 자동 점검에서는 보내지 않았고 화면에서 직접 확인함)' });
+    return results;
+  }
+
+  // 4단계: 학습 DB의 Data API를 공개용(publishable) 키로 직접 부르면 거부되어야 합니다. 키는 화면 코드에 이미 있는 공개 값입니다.
+  const page = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  const publishableKey = /sb_publishable_[A-Za-z0-9_-]+/u.exec(page)?.[0];
+  if (!publishableKey) throw new Error('public/index.html에서 공개용(publishable) 키를 찾지 못했습니다.');
+  const dataApi = new URL('/rest/v1/notes', new URL(config.identityProvider.issuer).origin).href;
+  const anonHeaders = { apikey: publishableKey };
+  const direct = [
+    ['anon_data_api_read', '공개용 키로 DB 메모 직접 조회가 거부됨(401·403)', 'GET', `${dataApi}?select=id&limit=1`],
+    ['anon_data_api_delete', '공개용 키로 DB 메모 직접 삭제가 거부됨(401·403)', 'DELETE', `${dataApi}?id=eq.${ABSENT_ID}`],
+  ];
+  for (const [attackId, expected, method, url] of direct) {
+    const code = await status(app, method, url, { headers: anonHeaders });
+    results.push({ attackId, expected, observed: code === 401 || code === 403 ? `요청이 거부됨 (HTTP ${code})` : `거부되지 않음 (HTTP ${code})` });
+  }
+  results.push({ attackId: 'a_b_own_note_crud', expected: 'A·B가 각자 자기 메모를 추가·수정·삭제할 수 있음',
+    observed: '미실행 (계정 비밀번호가 필요해 자동 점검에서는 보내지 않았고 화면에서 직접 확인함)' });
+  results.push({ attackId: 'cross_account_note_access', expected: 'B가 A 메모의 번호로 읽기·수정·삭제하면 거부되고, 본문 owner_id를 바꿔 추가해도 거부됨',
+    observed: '미실행 (B 로그인 토큰이 필요해 자동 점검에서는 보내지 않았고 브라우저 콘솔에서 직접 확인함)' });
   return results;
 }
