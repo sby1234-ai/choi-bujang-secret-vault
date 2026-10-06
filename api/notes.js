@@ -1,59 +1,34 @@
-// 3단계: 로그인한 요청에만 가상 메모를 돌려주는 서버 함수입니다.
-// 토큰 검사는 틀이 준 src/verify-login.mjs 도우미에 맡기고, 여기서는 고치거나 흉내 내지 않습니다.
-// 브라우저가 보낸 userId·role·본문·쿼리는 읽지도 믿지도 않습니다. 오직 Authorization 헤더의 토큰만 검사합니다.
-// 서버 전용 키는 Vercel 환경변수(SUPABASE_URL, SUPABASE_SECRET_KEY)에서만 읽고, 응답·로그에 넣지 않습니다.
-// 주의: 로그인만 확인할 뿐 다른 사람의 자료를 막지는 않습니다(4단계에서 처리).
-import { createClient } from '@supabase/supabase-js';
-import config from '../aleph.config.json' with { type: 'json' };
-import { createLoginVerifier } from '../src/verify-login.mjs';
-
-let verifier;
-function getVerifier() {
-  verifier ??= createLoginVerifier({ config, supabaseSecretKey: process.env.SUPABASE_SECRET_KEY });
-  return verifier;
-}
+// 3단계: 로그인한 사용자의 메모 목록(GET)과 추가(POST)입니다.
+// 아직 소유자 검사는 하지 않습니다: 한 건 조회·수정·삭제(/api/notes/:id)는 누구의 메모든 접근합니다(4단계에서 막을 허점).
+import { failed, methodNotAllowed, notes, readNoteInput, reply, requireLogin, toApi } from './_lib/notes-api.js';
 
 export default async function handler(request, response) {
-  response.setHeader('Cache-Control', 'no-store');
-  if (request.method !== 'GET') {
-    response.setHeader('Allow', 'GET');
-    return response.status(405).json({ error: 'METHOD_NOT_ALLOWED' });
+  if (request.method !== 'GET' && request.method !== 'POST') {
+    return methodNotAllowed(response, ['GET', 'POST']);
   }
-
-  const url = process.env.SUPABASE_URL;
-  const secretKey = process.env.SUPABASE_SECRET_KEY;
-  if (!url || !secretKey) {
-    return response.status(500).json({ error: 'SERVER_NOT_CONFIGURED' });
-  }
-
-  let login;
-  try {
-    login = await getVerifier()(request.headers.authorization);
-  } catch {
-    console.error('login verifier setup failed');
-    return response.status(500).json({ error: 'SERVER_NOT_CONFIGURED' });
-  }
-  if (!login) {
-    // 토큰이 없거나 검사에 실패하면 자료 없이 거부합니다.
-    response.setHeader('WWW-Authenticate', 'Bearer');
-    return response.status(401).json({ error: 'LOGIN_REQUIRED' });
-  }
+  const login = await requireLogin(request, response);
+  if (!login) return undefined;
 
   try {
-    const supabase = createClient(url, secretKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const { data, error } = await supabase
-      .from('notes')
-      .select('title, content')
-      .order('created_at', { ascending: true });
-    if (error) {
-      console.error('notes query failed', error.code ?? 'unknown');
-      return response.status(502).json({ error: 'NOTES_UNAVAILABLE' });
+    if (request.method === 'GET') {
+      const { data, error } = await notes()
+        .select('id, title, content')
+        .eq('owner_id', login.userId)
+        .order('created_at', { ascending: true });
+      if (error) return failed(response, error);
+      return reply(response, 200, (data ?? []).map(toApi));
     }
-    return response.status(200).json({ notes: data ?? [] });
+
+    const { input, error: invalid } = readNoteInput(request, { allowId: true });
+    if (invalid) return reply(response, 400, { error: invalid });
+    const id = input.id ?? crypto.randomUUID();
+    const { error } = await notes().insert({
+      id, owner_id: login.userId, title: input.title, content: input.body,
+    });
+    if (error?.code === '23505') return reply(response, 409, { error: 'ID_EXISTS' });
+    if (error) return failed(response, error);
+    return reply(response, 201, { id });
   } catch {
-    console.error('notes handler failed');
-    return response.status(502).json({ error: 'NOTES_UNAVAILABLE' });
+    return failed(response, null);
   }
 }
