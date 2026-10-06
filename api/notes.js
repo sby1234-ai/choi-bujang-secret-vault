@@ -1,6 +1,6 @@
-// 3단계: 로그인한 사용자의 메모 목록(GET)과 추가(POST)입니다.
-// 아직 소유자 검사는 하지 않습니다: 한 건 조회·수정·삭제(/api/notes/:id)는 누구의 메모든 접근합니다(4단계에서 막을 허점).
-import { failed, methodNotAllowed, notes, readNoteInput, reply, requireLogin, toApi } from './_lib/notes-api.js';
+// 로그인한 사용자의 메모 목록(GET)과 추가(POST)입니다.
+// 목록은 서버가 확인한 사용자 ID의 메모만 돌려주고, 추가할 때 owner_id는 항상 그 ID로 저장합니다(본문의 owner_id는 쓰지 않습니다).
+import { failed, methodNotAllowed, notes, readNoteInput, rejectInput, reply, requireLogin, toApi } from './_lib/notes-api.js';
 
 export default async function handler(request, response) {
   if (request.method !== 'GET' && request.method !== 'POST') {
@@ -19,8 +19,8 @@ export default async function handler(request, response) {
       return reply(response, 200, (data ?? []).map(toApi));
     }
 
-    const { input, error: invalid } = readNoteInput(request, { allowId: true });
-    if (invalid) return reply(response, 400, { error: invalid });
+    const { input, error: invalid } = readNoteInput(request, { allowId: true, userId: login.userId });
+    if (invalid) return rejectInput(response, invalid);
     const id = input.id ?? crypto.randomUUID();
     const { error } = await notes().insert({
       id, owner_id: login.userId, title: input.title, content: input.body,
