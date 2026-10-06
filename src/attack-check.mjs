@@ -42,7 +42,7 @@ async function status(app, method, path, { headers = {}, body } = {}) {
 const ABSENT_ID = '00000000-0000-4000-8000-000000000000';
 
 export async function runAttackChecks(config) {
-  if (!Number.isInteger(config.step) || config.step < 1 || config.step > 4) {
+  if (!Number.isInteger(config.step) || config.step < 1 || config.step > 5) {
     throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   }
   const app = appUrl(config);
@@ -90,11 +90,13 @@ export async function runAttackChecks(config) {
     return results;
   }
 
-  // 4단계: 학습 DB의 Data API를 공개용(publishable) 키로 직접 부르면 거부되어야 합니다. 키는 화면 코드에 이미 있는 공개 값입니다.
+  // 4·5단계: 학습 DB의 Data API(원본 자료 경로)를 공개용(publishable) 키로 직접 부르면 거부되어야 합니다. 키는 화면 코드에 이미 있는 공개 값입니다.
   const page = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
   const publishableKey = /sb_publishable_[A-Za-z0-9_-]+/u.exec(page)?.[0];
   if (!publishableKey) throw new Error('public/index.html에서 공개용(publishable) 키를 찾지 못했습니다.');
-  const dataApi = new URL('/rest/v1/notes', new URL(config.identityProvider.issuer).origin).href;
+  const dataApi = typeof config.originalApiUrl === 'string' && config.originalApiUrl.startsWith('https://')
+    ? config.originalApiUrl
+    : new URL('/rest/v1/notes', new URL(config.identityProvider.issuer).origin).href;
   const anonHeaders = { apikey: publishableKey };
   const direct = [
     ['anon_data_api_read', '공개용 키로 DB 메모 직접 조회가 거부됨(401·403)', 'GET', `${dataApi}?select=id&limit=1`],

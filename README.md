@@ -107,7 +107,7 @@ Supabase Auth 이메일·비밀번호 로그인과 로그아웃 화면이 있고
 - 로그인 화면이 공식 SDK를 외부 배포망(jsdelivr)에서 버전을 고정해 불러옵니다.
 - 옛 공개 커밋(`Initial commit`)과 1단계 때의 옛 배포에는 가상 메모가 그대로 남아 있습니다. 최신 파일에서 지웠다고 과거 노출이 해소된 것은 아닙니다.
 
-## 4단계: 로그인해도 내 자료만 보이게 합니다 (현재 상태)
+## 4단계: 로그인해도 내 자료만 보이게 합니다 (4단계 기록)
 
 로그인한 사람이라도 자기 메모만 읽고 추가·수정·삭제할 수 있습니다. 서버가 요청에 적힌 메모 번호를 믿지 않고, 매번 서버가 확인한 사용자 ID와 DB의 `owner_id`를 비교합니다. 이중으로, 학습 DB도 직접 접근할 때 본인 행만 허용합니다.
 
@@ -134,8 +134,39 @@ Supabase Auth 이메일·비밀번호 로그인과 로그아웃 화면이 있고
 - SQL Editor에서 `has_table_privilege`로 `anon`은 네 가지 모두 `false`, `authenticated`는 모두 `true`인지 확인합니다.
 - `npm run bundle`의 직접 점검은 로그인 없는 요청 5건과 가짜 토큰, 공개용 키로 DB Data API를 직접 읽기·삭제하는 요청이 거부되는지(상태 코드만) 기록합니다. 계정 비밀번호·토큰이 필요한 A/B 정상 사용과 교차 접근은 자동 점검에서 보내지 않고 미실행으로 남겼습니다.
 
+### 4단계 당시 남은 약점 (직접 접근 길은 5단계에서 닫음)
+
+- 로그인한 사용자(authenticated)가 자기 토큰으로 학습 DB를 직접 부를 수 있었습니다(본인 행만).
+- 로그인 화면이 공식 SDK를 외부 배포망(jsdelivr)에서 버전을 고정해 불러옵니다.
+- 옛 공개 커밋(`Initial commit`)과 1단계 때의 옛 배포에는 가상 메모가 그대로 남아 있습니다. 최신 파일에서 지웠다고 과거 노출이 해소된 것은 아닙니다.
+- 직접 Data API로 `authenticated` 역할이 본인 행을 접근하는 경우는 자동 점검 대상이 아닙니다(심판이 재현할 수 없어 점수에서 제외).
+
+## 5단계: 자료 요청을 서버 한곳으로 모읍니다 (현재 상태)
+
+브라우저의 메모 읽기·추가·수정·삭제는 모두 Vercel 서버 함수(`/api/notes`, `/api/notes/:id`)를 거칩니다. 학습 DB(`public.notes`)를 공개 키나 로그인 토큰으로 직접 부르는 길은 권한을 회수해서 닫았습니다.
+
+### 현재 작동하는 기능
+
+- 화면 코드(`public/index.html`)에는 학습 DB를 직접 읽거나 고치는 호출이 없습니다. Supabase는 로그인(`signInWithPassword`, `signOut`, `getSession`, `onAuthStateChange`)에만 쓰고, 메모는 `api()` 도우미가 같은 사이트의 `/api/...`만 부릅니다.
+- 서버 함수는 서버 전용 키(`service_role`)로 DB에 접근하고, 4단계의 로그인 검사와 소유자 검사(남의 메모 404, 소유자 변경 시도 403)를 그대로 유지합니다.
+- `public.notes`에서 PUBLIC·`anon`·`authenticated`의 직접 권한을 모두 회수했습니다. 남은 것은 `service_role`뿐입니다. RLS와 정책 4개는 두 번째 방어선으로 남겨 두었습니다.
+- `aleph.config.json`의 `originalApiUrl`에 쿼리 없는 원본 자료 경로(Supabase Data API의 `notes` 테이블 주소)를 적었습니다. 이 경로는 공개 키로 직접 부르면 거부되어야 합니다.
+- 실제 서버 경로는 `allowedRoutes`와 같습니다: `GET·POST /api/notes`, `GET·PUT·DELETE /api/notes/:id`.
+
+### 다시 실행하는 방법
+
+1. Supabase SQL Editor에 `db/notes.sql` 전체를 붙여 넣고 Run 합니다(여러 번 실행해도 됩니다). 이미 만든 DB에서 권한만 거두려면 `revoke all on table public.notes from public, anon, authenticated;`만 실행해도 됩니다.
+2. 시험 계정 둘(A, B)과 소유자 연결은 4단계 방법 그대로입니다. 비밀번호는 코드·Git·채팅에 적지 않습니다.
+3. Vercel 환경변수 `SUPABASE_URL`, `SUPABASE_SECRET_KEY`는 그대로 쓰고, 푸시하면 Vercel이 다시 배포합니다.
+
+### 확인 방법
+
+- SQL Editor에서 `has_table_privilege`로 `anon`·`authenticated`가 네 가지 모두 `false`인지, `role_table_grants`에 `service_role`만 남았는지 확인합니다.
+- A와 B로 각각 로그인해서 새로고침 후 자기 메모만 보이고 추가·수정·삭제가 되는지 화면에서 확인합니다(5단계 뒤에도 다시 확인합니다).
+- `npm run bundle`의 직접 점검은 로그인 없는 요청과 가짜 토큰이 거부되는지, 공개용 키로 원본 자료 경로(`originalApiUrl`)를 직접 조회·삭제하면 거부되는지를 상태 코드만 기록합니다. 계정 토큰이 필요한 정상 사용과 교차 접근은 미실행으로 남깁니다.
+
 ### 아직 남은 약점
 
 - 로그인 화면이 공식 SDK를 외부 배포망(jsdelivr)에서 버전을 고정해 불러옵니다.
 - 옛 공개 커밋(`Initial commit`)과 1단계 때의 옛 배포에는 가상 메모가 그대로 남아 있습니다. 최신 파일에서 지웠다고 과거 노출이 해소된 것은 아닙니다.
-- 직접 Data API로 `authenticated` 역할이 본인 행을 접근하는 경우는 자동 점검 대상이 아닙니다(심판이 재현할 수 없어 점수에서 제외).
+- 서버 전용 키가 유출되면 서버 함수의 검사와 상관없이 DB에 접근됩니다. 키는 Vercel 환경변수에만 두고 Git·로그에 남기지 않습니다.
