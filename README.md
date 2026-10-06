@@ -159,7 +159,7 @@ Supabase Auth 이메일·비밀번호 로그인과 로그아웃 화면이 있고
 
 1. Supabase SQL Editor에 `db/notes.sql` 전체를 붙여 넣고 Run 합니다(여러 번 실행해도 됩니다). 이미 만든 DB에서 권한만 거두려면 `revoke all on table public.notes from public, anon, authenticated;`만 실행해도 됩니다.
 2. 시험 계정 둘(A, B)과 소유자 연결은 4단계 방법 그대로입니다. 비밀번호는 코드·Git·채팅에 적지 않습니다.
-3. Vercel 환경변수 `SUPABASE_URL`, `SUPABASE_SECRET_KEY`는 그대로 쓰고, 새로 `SUPABASE_PUBLISHABLE_KEY`(Supabase의 공개용 키)를 Production에 추가합니다. 추가한 뒤에 푸시하면 Vercel이 다시 배포하면서 새 값을 씁니다.
+3. Vercel 환경변수 `SUPABASE_URL`, `SUPABASE_SECRET_KEY`는 그대로 쓰고, 새로 `SUPABASE_PUBLISHABLE_KEY`(Supabase의 공개용 키)를 Production에 추가합니다. 추가한 뒤에 푸시하면 Vercel이 다시 배포하면서 새 값을 씁니다. 이름은 정확히 `SUPABASE_PUBLISHABLE_KEY`여야 합니다. 철자가 다르면 로그인 함수가 `SERVER_NOT_CONFIGURED`(HTTP 500)로 답하고, `npm run bundle`의 `wrong_password_login` 점검이 401이 아니라 500으로 기록됩니다.
 
 ### 확인 방법
 
