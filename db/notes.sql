@@ -19,6 +19,10 @@ revoke all on table public.notes from public;
 revoke all on table public.notes from anon;
 revoke all on table public.notes from authenticated;
 
+-- 서버 함수가 쓰는 서버 전용 키(service_role)에만 읽기 권한을 줍니다.
+-- 새 테이블 자동 공개를 끈 프로젝트에서는 이 줄이 없으면 서버 함수도 읽지 못합니다.
+grant select on table public.notes to service_role;
+
 -- 가상 메모 네 건은 SQL Editor에서 한 번 넣었고, 공개 저장소에는 메모 문장을 남기지 않기 위해
 -- 이 파일에서는 넣는 문장을 뺐습니다. 새 프로젝트에서 다시 만들 때는 SQL Editor에서 직접 입력하세요.
 --   insert into public.notes (title, content) values ('제목', '내용');
