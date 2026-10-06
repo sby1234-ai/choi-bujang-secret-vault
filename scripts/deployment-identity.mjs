@@ -23,6 +23,9 @@ export function deploymentIdentity(env, config) {
   const routes = Array.isArray(config.allowedRoutes)
     ? config.allowedRoutes.filter((route) => typeof route === 'string' && /^[A-Z]{3,7} \/[\w\-./:\[\]]{0,100}$/u.test(route)).slice(0, 50)
     : [];
+  // 원본 자료 주소(5단계부터)는 쿼리 없는 https 주소일 때만 내보냅니다. 비밀값은 넣지 않습니다.
+  const original = typeof config.originalApiUrl === 'string' && config.originalApiUrl.length <= 250
+    && /^https:\/\/[^\s?#]+$/u.test(config.originalApiUrl) ? config.originalApiUrl : null;
   return {
     schema: 'aleph.defense.deployment.v1',
     step: config.step,
@@ -32,5 +35,6 @@ export function deploymentIdentity(env, config) {
     judgeIssuer: config.judgeIssuer,
     sampleMarker: config.sampleMarker,
     ...(routes.length ? { allowedRoutes: routes } : {}),
+    ...(original ? { originalApiUrl: original } : {}),
   };
 }
