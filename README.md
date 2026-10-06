@@ -23,3 +23,47 @@
 [AGENTS.md](AGENTS.md)를 먼저 읽히고 한 번에 한 제작 단위만 요청하세요. 2단계부터는 자료 보호를 구현할 때 `public/data.json`을 복사하는 1단계 빌드 흐름도 함께 바꿔야 합니다. 3단계 이후의 로그인, 허용 경로, 5단계의 원본 API 주소, 6단계 이후 정책 규칙은 해당 단계 원고와 계약에 맞춰 추가합니다. 비밀번호·토큰·서버 전용 키·실제 학생 기록을 코드, Git, 제출 묶음에 넣지 않습니다.
 
 `src/decider.mjs`와 `src/detect.mjs`의 로컬 시험은 반 엔진이나 운영 심판의 결과가 아닙니다. 1단계 이후 제출 묶음 계약 `aleph.defense.submission.v2`는 `scripts/bundle.mjs`에 남아 있으며, 코딩 도구가 해당 단계의 최신 배포 주소와 Git 원격을 맞춘 뒤 사용합니다.
+
+## 2단계: 자료를 코드 밖으로 (현재 상태)
+
+가상 메모 네 건은 이제 코드·정적 파일이 아니라 학습용 Supabase 테이블 `notes`에 있습니다. 테이블은 `db/notes.sql`로 만들고, RLS를 켰으며 anon·authenticated에는 권한을 주지 않았습니다. 메모 자체는 SQL Editor에서 한 번 넣었고, 공개 저장소에는 메모 문장을 남기지 않았습니다. 화면(`public/index.html`)은 `/api/notes`(서버 함수 `api/notes.js`)를 통해서만 메모를 읽습니다. `data.json`과 `public/data.json`에는 메모가 없습니다(`"notes": []`).
+
+### 다시 실행하는 방법
+
+1. Supabase SQL Editor에서 `db/notes.sql`을 실행해 테이블을 만들고(이미 있으면 그대로 둡니다), 가상 메모는 SQL Editor에서 직접 입력합니다.
+2. Vercel 프로젝트의 Settings > Environment Variables에 `SUPABASE_URL`과 `SUPABASE_SECRET_KEY`를 직접 입력합니다. 값은 코드·Git·채팅에 적지 않습니다.
+3. 변경을 푸시하면 Vercel이 다시 배포합니다. 환경변수를 새로 넣었다면 Redeploy가 필요합니다.
+
+### 아직 남은 약점
+
+- `/api/notes`는 공개 주소입니다. 3단계 로그인 전까지는 누구나 이 주소를 호출해 가상 메모를 읽을 수 있습니다. 그래서 이 저장소에는 가상 메모만 둡니다.
+- 서버 전용 키는 이 함수만 환경변수로 읽습니다. 키를 브라우저 파일·응답·로그에 넣지 않습니다.
+
+### 메모가 밖으로 새지 않았는지 확인하는 방법
+
+배포 주소는 `https://choi-bujang-secret-vault-eight-psi.vercel.app`입니다. PowerShell에서 실행합니다.
+
+1. 배포된 정적 파일: `/data.json`과 첫 화면 어디에도 메모 문장이 없어야 합니다. 메모 한 건에서 뽑은 짧은 단어를 `찾을단어` 자리에 넣어 검색합니다. 결과가 비어 있으면 통과입니다.
+
+```powershell
+curl.exe -s https://choi-bujang-secret-vault-eight-psi.vercel.app/data.json
+curl.exe -s https://choi-bujang-secret-vault-eight-psi.vercel.app/ | Select-String "찾을단어"
+```
+
+2. GitHub 최신 파일: 저장소 폴더에서 메모 단어를 검색합니다. 아무것도 나오지 않으면 통과입니다.
+
+```powershell
+git grep -n "찾을단어"
+```
+
+3. 결과 기록 방법: 검색 결과(없음 또는 나온 파일 이름)와 아래 남은 약점을 각각 적어 둡니다. `npm run bundle`의 직접 점검 항목(`public_data_json_read`, `anonymous_api_read`)도 실제로 보낸 요청의 결과만 담습니다.
+
+### 지난 공개 이력은 해소되지 않았습니다
+
+옛 공개 커밋(`Initial commit`)과 1단계 때의 옛 배포에는 가상 메모가 그대로 남아 있습니다. 최신 파일에서 메모를 지웠다고 해서 과거에 노출된 사실이 없어지지는 않으므로, 과거 노출은 해소됐다고 볼 수 없습니다. 실제 자료였다면 이력 삭제와 키 교체가 따로 필요합니다.
+
+### 남은 약점 정리
+
+- `/api/notes`는 로그인 없이 누구나 호출할 수 있습니다(3단계에서 막을 예정).
+- 옛 공개 커밋과 옛 배포에는 가상 메모가 남아 있습니다.
+
