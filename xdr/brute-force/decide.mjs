@@ -1,11 +1,8 @@
 // 무차별 로그인 경보 판단 모듈입니다. decide(alert) 하나를 내보냅니다.
-// 순서: 경보에서 다섯 값을 뽑고 → patterns.json 의 패턴과 맞춰 보고 → 명확하면 block, 정상이면 record,
+// 이 파일은 다른 파일을 불러오지 않고 혼자 동작합니다(심판이 이 파일만 가져가도 실행되도록).
+// 순서: 경보에서 필요한 값만 뽑고 → MITRE T1110 근거 패턴과 맞춰 보고 → 명확하면 block, 정상이면 record,
 // 애매한 것만 Jev 에게 확신도를 물어 0.85 이상 block · 0.5 이상 alert · 그 아래 record 로 나눕니다.
 // Jev 가 응답하지 않거나 형식이 틀리면 alert 로 떨어집니다. 경보 원본은 고치지 않습니다.
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { pickFields } from './read-alerts.mjs';
 
 export const BLOCK_AT = 0.85;
 export const ALERT_AT = 0.5;
@@ -17,29 +14,68 @@ const NORMAL_CONFIDENCE = 0.05;
 const FALLBACK_CONFIDENCE = ALERT_AT; // Jev 무응답 → 정확히 alert 경계
 const DEFAULT_TIMEOUT_MS = 5000;
 
-const PATTERNS_FILE = join(fileURLToPath(new URL('.', import.meta.url)), 'patterns.json');
-
-// 패턴 id → 설명에서 찾는 말. 더 구체적인 패턴이 앞에 옵니다.
-const MATCHERS = [
-  ['same-password-many-accounts', /여러\s*계정|서로\s*다른\s*계정|계정\s*\d+\s*개|계정\s*이름을\s*바꿔|두\s*계정/u],
-  ['failures-then-success', /실패[^.]*?(뒤|후)[^.]*?성공/u],
-  ['repeated-failure-same-source', /로그인\s*실패|실패(?:가|는)?\s*\d+\s*건|실패[^.]*건/u],
+// 근거가 있는 패턴만 둡니다(patterns.json 과 같은 이름·근거). 더 구체적인 패턴이 앞에 옵니다.
+const PATTERNS = [
+  {
+    id: 'same-password-many-accounts',
+    name: '여러 계정에 같은 비밀번호 대입',
+    evidence: 'T1110.003 비밀번호 스프레잉',
+    words: /여러\s*계정|서로\s*다른\s*계정|계정\s*\d+\s*개|계정\s*이름을\s*바꿔|두\s*계정/u,
+  },
+  {
+    id: 'failures-then-success',
+    name: '실패가 쌓인 뒤 같은 주소·계정의 성공',
+    evidence: 'T1110 탐지 지침',
+    words: /실패[^.]*?(뒤|후)[^.]*?성공/u,
+  },
+  {
+    id: 'repeated-failure-same-source',
+    name: '같은 주소·같은 계정의 로그인 실패 연속',
+    evidence: 'T1110.001 비밀번호 추측',
+    words: /로그인\s*실패|실패(?:가|는)?\s*\d+\s*건|실패[^.]*건/u,
+  },
 ];
+const byId = (id) => PATTERNS.find((pattern) => pattern.id === id);
 
-let patternNames = null;
-async function loadPatternNames() {
-  if (patternNames) return patternNames;
-  const file = JSON.parse(await readFile(PATTERNS_FILE, 'utf8'));
-  if (file?.schema !== 'aleph.xdr.patterns.v1' || !Array.isArray(file.patterns)) throw new Error('patterns.json 형식이 아닙니다.');
-  const names = new Map();
-  for (const pattern of file.patterns) {
-    if (typeof pattern?.id === 'string' && typeof pattern.name === 'string' && typeof pattern.evidence === 'string' && pattern.evidence.trim()) {
-      names.set(pattern.id, pattern.name); // 근거가 없는 패턴은 쓰지 않습니다.
-    }
-  }
-  if (!MATCHERS.every(([id]) => names.has(id))) throw new Error('patterns.json 에 근거가 있는 패턴이 부족합니다.');
-  patternNames = names;
-  return names;
+const SECRET_LIKE = [
+  /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z ]*PRIVATE KEY-----|$)/giu,
+  /\bBearer\s+[A-Za-z0-9._~+/=-]{8,}/giu,
+  /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}(?:\.[A-Za-z0-9_-]{4,})?/gu,
+  /\bsb_(?:secret|publishable)_[A-Za-z0-9_-]{8,}/giu,
+  /\bsk-[A-Za-z0-9_-]{16,}/gu,
+  /\b(?:password|passwd|pwd|secret|token|api[_-]?key|apikey|authorization)\s*[=:]\s*\S+/giu,
+  /\b(?:비밀번호|암호|토큰|비밀키)\s*[=:]\s*\S+/gu,
+  /\b[A-Fa-f0-9]{32,}\b/gu,
+];
+const redact = (text) => SECRET_LIKE.reduce((out, pattern) => out.replace(pattern, '[가림]'), text);
+const IPV4 = /^(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)$/u;
+const IPV6 = /^[0-9A-Fa-f:]{2,39}$/u;
+const ACCOUNT = /^[A-Za-z0-9._@-]{1,64}$/u;
+
+// Jev 에 보낼 값만 뽑습니다(비밀값 가림 적용). 형식이 이상한 값은 null 입니다.
+function summarize(alert) {
+  const rawLevel = alert?.rule?.level;
+  const level = Number.isFinite(Number(rawLevel)) && String(rawLevel).trim() !== '' ? Number(rawLevel) : null;
+  const ip = typeof alert?.data?.srcip === 'string' && (IPV4.test(alert.data.srcip) || IPV6.test(alert.data.srcip)) ? alert.data.srcip : null;
+  const account = typeof alert?.data?.srcuser === 'string' && ACCOUNT.test(alert.data.srcuser) ? alert.data.srcuser : null;
+  return {
+    at: typeof alert?.timestamp === 'string' ? alert.timestamp : null,
+    srcIp: ip,
+    account,
+    ruleLevel: level !== null && level >= 0 && level <= 15 ? level : null,
+    description: typeof alert?.rule?.description === 'string' ? redact(alert.rule.description).slice(0, 200) : null,
+  };
+}
+
+// 설명 문구가 달라도 놓치지 않도록, 경보의 MITRE 태그(T1110)와 data.accounts 같은 구조 값으로도 패턴을 찾습니다.
+function structuralPattern(alert, description) {
+  const tagged = Array.isArray(alert?.rule?.mitre) && alert.rule.mitre.some((id) => typeof id === 'string' && id.startsWith('T1110'));
+  if (!tagged) return null;
+  const accounts = alert?.data?.accounts;
+  const many = Array.isArray(accounts) ? accounts.length > 1 : typeof accounts === 'string' && accounts.split(',').filter(Boolean).length > 1;
+  if (many) return byId('same-password-many-accounts');
+  if (byId('failures-then-success').words.test(description)) return byId('failures-then-success');
+  return byId('repeated-failure-same-source');
 }
 
 // Jev 연결 지점입니다. 기본값은 연결 없음이라 애매한 경보는 alert 가 됩니다.
@@ -57,7 +93,7 @@ const withTimeout = (promise, ms) => new Promise((resolve, reject) => {
     (error) => { clearTimeout(timer); reject(error); });
 });
 
-// Jev 에는 뽑아 둔 값만 보냅니다(비밀값 가림 적용 후). 응답은 숫자 또는 { confidence } 입니다.
+// 응답은 숫자 또는 { confidence } 입니다. 0~1 밖이거나 숫자가 아니면 무응답으로 봅니다.
 async function askJev(summary) {
   if (!jevClient) return null;
   try {
@@ -71,23 +107,11 @@ async function askJev(summary) {
 
 const actionFor = (confidence) => (confidence >= BLOCK_AT ? 'block' : confidence >= ALERT_AT ? 'alert' : 'record');
 
-// 설명 문구가 달라도 놓치지 않도록, 경보의 MITRE 태그(T1110)와 data.accounts 같은 구조 값으로도 패턴을 찾습니다.
-function structuralPattern(alert, description) {
-  const tagged = Array.isArray(alert?.rule?.mitre) && alert.rule.mitre.some((id) => typeof id === 'string' && id.startsWith('T1110'));
-  if (!tagged) return null;
-  const accounts = alert?.data?.accounts;
-  const manyAccounts = Array.isArray(accounts) ? accounts.length > 1 : typeof accounts === 'string' && accounts.split(',').filter(Boolean).length > 1;
-  if (manyAccounts) return 'same-password-many-accounts';
-  if (MATCHERS[1][1].test(description)) return 'failures-then-success';
-  return 'repeated-failure-same-source';
-}
-
 export async function decide(alert) {
-  const names = await loadPatternNames();
-  const fields = pickFields(alert);
+  const fields = summarize(alert);
   const description = fields.description ?? '';
-  const matched = MATCHERS.find(([, pattern]) => pattern.test(description))?.[0] ?? structuralPattern(alert, description);
-  const patternName = matched ? names.get(matched) : '일치하는 패턴 없음';
+  const pattern = PATTERNS.find((item) => item.words.test(description)) ?? structuralPattern(alert, description);
+  const patternName = pattern ? pattern.name : '일치하는 패턴 없음';
   const level = fields.ruleLevel;
 
   // 규칙 수준이 낮은 이벤트는 정상으로 기록합니다.
@@ -95,14 +119,11 @@ export async function decide(alert) {
     return { action: 'record', confidence: NORMAL_CONFIDENCE, reason: `${patternName} — 규칙 수준이 낮아 정상으로 기록` };
   }
   // 패턴이 맞고 규칙 수준이 높으면 Jev 에게 묻지 않고 명확한 공격으로 봅니다.
-  if (matched && level !== null && level >= CLEAR_LEVEL) {
+  if (pattern && level !== null && level >= CLEAR_LEVEL) {
     return { action: 'block', confidence: CLEAR_CONFIDENCE, reason: `${patternName} — 명확한 공격(자체 판정)` };
   }
   // 나머지는 애매한 경보입니다. Jev 확신도로 나누고, 응답이 없으면 alert 입니다.
-  const asked = await askJev({
-    pattern: matched ? patternName : null,
-    at: fields.at, srcIp: fields.srcIp, account: fields.account, ruleLevel: level, description: fields.description,
-  });
+  const asked = await askJev({ pattern: pattern ? patternName : null, ...fields });
   if (asked === null) {
     return { action: 'alert', confidence: FALLBACK_CONFIDENCE, reason: `${patternName} — 애매함, Jev 응답 없어 alert` };
   }
