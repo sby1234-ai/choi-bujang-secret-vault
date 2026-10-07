@@ -6,9 +6,11 @@
 
 export const BLOCK_AT = 0.85;
 export const ALERT_AT = 0.5;
-// 규칙 수준(rule.level) 경계는 연습 경보의 분포(공격 10~12, 애매 5~8, 정상 2~3)에 맞춘 값입니다.
+// 규칙 수준(rule.level)·실패 건수 경계는 연습 경보의 분포(공격 수준 10~12·실패 15건 이상, 애매 수준 5~8·실패 8건 이하,
+// 정상 수준 2~3)에 맞춘 값입니다. MITRE 가 정한 숫자가 아니라서 운영 기준이 생기면 이 상수만 바꿉니다.
 export const CLEAR_LEVEL = 10;
 export const NORMAL_BELOW = 5;
+export const CLEAR_COUNT = 15;
 const CLEAR_CONFIDENCE = 0.95;
 const NORMAL_CONFIDENCE = 0.05;
 const FALLBACK_CONFIDENCE = ALERT_AT; // Jev 무응답 → 정확히 alert 경계
@@ -58,10 +60,14 @@ function summarize(alert) {
   const level = Number.isFinite(Number(rawLevel)) && String(rawLevel).trim() !== '' ? Number(rawLevel) : null;
   const ip = typeof alert?.data?.srcip === 'string' && (IPV4.test(alert.data.srcip) || IPV6.test(alert.data.srcip)) ? alert.data.srcip : null;
   const account = typeof alert?.data?.srcuser === 'string' && ACCOUNT.test(alert.data.srcuser) ? alert.data.srcuser : null;
+  const rawCount = alert?.data?.count;
+  const count = (typeof rawCount === 'string' || typeof rawCount === 'number') && String(rawCount).trim() !== '' && Number.isFinite(Number(rawCount)) && Number(rawCount) >= 0
+    ? Number(rawCount) : null;
   return {
     at: typeof alert?.timestamp === 'string' ? alert.timestamp : null,
     srcIp: ip,
     account,
+    failureCount: count,
     ruleLevel: level !== null && level >= 0 && level <= 15 ? level : null,
     description: typeof alert?.rule?.description === 'string' ? redact(alert.rule.description).slice(0, 200) : null,
   };
@@ -118,9 +124,12 @@ export async function decide(alert) {
   if (level !== null && level < NORMAL_BELOW) {
     return { action: 'record', confidence: NORMAL_CONFIDENCE, reason: `${patternName} — 규칙 수준이 낮아 정상으로 기록` };
   }
-  // 패턴이 맞고 규칙 수준이 높으면 Jev 에게 묻지 않고 명확한 공격으로 봅니다.
-  if (pattern && level !== null && level >= CLEAR_LEVEL) {
-    return { action: 'block', confidence: CLEAR_CONFIDENCE, reason: `${patternName} — 명확한 공격(자체 판정)` };
+  // 규칙 수준이 높거나, 패턴이 맞고 실패 건수가 많으면 Jev 에게 묻지 않고 명확한 공격으로 봅니다.
+  // 이 모듈은 무차별 로그인 경보만 받으므로, 수준이 높은 경보는 알려진 문구·태그가 없어도 명확한 공격으로 다룹니다.
+  const manyFailures = pattern && fields.failureCount !== null && fields.failureCount >= CLEAR_COUNT;
+  if ((level !== null && level >= CLEAR_LEVEL) || manyFailures) {
+    const basis = level !== null && level >= CLEAR_LEVEL ? '규칙 수준 높음' : `실패 ${fields.failureCount}건`;
+    return { action: 'block', confidence: CLEAR_CONFIDENCE, reason: `${patternName} — 명확한 공격(자체 판정, ${basis})` };
   }
   // 나머지는 애매한 경보입니다. Jev 확신도로 나누고, 응답이 없으면 alert 입니다.
   const asked = await askJev({ pattern: pattern ? patternName : null, ...fields });
