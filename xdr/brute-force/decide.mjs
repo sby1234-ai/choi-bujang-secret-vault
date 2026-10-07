@@ -71,11 +71,22 @@ async function askJev(summary) {
 
 const actionFor = (confidence) => (confidence >= BLOCK_AT ? 'block' : confidence >= ALERT_AT ? 'alert' : 'record');
 
+// 설명 문구가 달라도 놓치지 않도록, 경보의 MITRE 태그(T1110)와 data.accounts 같은 구조 값으로도 패턴을 찾습니다.
+function structuralPattern(alert, description) {
+  const tagged = Array.isArray(alert?.rule?.mitre) && alert.rule.mitre.some((id) => typeof id === 'string' && id.startsWith('T1110'));
+  if (!tagged) return null;
+  const accounts = alert?.data?.accounts;
+  const manyAccounts = Array.isArray(accounts) ? accounts.length > 1 : typeof accounts === 'string' && accounts.split(',').filter(Boolean).length > 1;
+  if (manyAccounts) return 'same-password-many-accounts';
+  if (MATCHERS[1][1].test(description)) return 'failures-then-success';
+  return 'repeated-failure-same-source';
+}
+
 export async function decide(alert) {
   const names = await loadPatternNames();
   const fields = pickFields(alert);
   const description = fields.description ?? '';
-  const matched = MATCHERS.find(([, pattern]) => pattern.test(description))?.[0] ?? null;
+  const matched = MATCHERS.find(([, pattern]) => pattern.test(description))?.[0] ?? structuralPattern(alert, description);
   const patternName = matched ? names.get(matched) : '일치하는 패턴 없음';
   const level = fields.ruleLevel;
 
