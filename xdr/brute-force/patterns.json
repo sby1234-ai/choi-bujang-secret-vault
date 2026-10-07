@@ -1,0 +1,35 @@
+{
+  "schema": "aleph.xdr.patterns.v1",
+  "moduleKey": "brute-force",
+  "technique": {
+    "id": "T1110",
+    "name": "Brute Force",
+    "source": "https://attack.mitre.org/techniques/T1110/"
+  },
+  "patterns": [
+    {
+      "id": "repeated-failure-same-source",
+      "name": "같은 주소·같은 계정의 로그인 실패 연속",
+      "subTechnique": "T1110.001",
+      "condition": "짧은 시간 안에 같은 출발 주소(data.srcip)가 같은 계정(data.srcuser)에 로그인 실패를 연속으로 쌓는다.",
+      "evidence": "T1110.001 비밀번호 추측: 'repetitive or iterative mechanism'으로 비밀번호를 반복해서 넣어 본다.",
+      "source": "https://attack.mitre.org/techniques/T1110/001/"
+    },
+    {
+      "id": "same-password-many-accounts",
+      "name": "여러 계정에 같은 비밀번호 대입",
+      "subTechnique": "T1110.003",
+      "condition": "짧은 시간 안에 같은 출발 주소(data.srcip)가 서로 다른 여러 계정에 로그인 실패를 넣는다.",
+      "evidence": "T1110.003 비밀번호 스프레잉: 같은 비밀번호로 'many different accounts'에 로그인을 시도해 한 계정 잠금을 피한다.",
+      "source": "https://attack.mitre.org/techniques/T1110/003/"
+    },
+    {
+      "id": "failures-then-success",
+      "name": "실패가 쌓인 뒤 같은 주소·계정의 성공",
+      "subTechnique": "T1110",
+      "condition": "같은 출발 주소와 같은 계정에서 로그인 실패가 여러 번 이어진 뒤 로그인 성공이 한 번 나온다.",
+      "evidence": "T1110 탐지 지침: 'High volume of failed logon attempts followed by a successful one'을 살피라고 한다.",
+      "source": "https://attack.mitre.org/techniques/T1110/"
+    }
+  ]
+}
