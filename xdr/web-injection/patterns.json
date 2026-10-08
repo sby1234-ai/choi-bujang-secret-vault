@@ -1,0 +1,33 @@
+{
+  "schema": "aleph.xdr.patterns.v1",
+  "moduleKey": "web-injection",
+  "technique": {
+    "id": "T1190",
+    "name": "Exploit Public-Facing Application",
+    "source": "https://attack.mitre.org/techniques/T1190/",
+    "note": "T1190 은 외부에 열린 웹 서버·앱의 약점을 노리는 초기 침투이고, 웹 취약점의 대표 목록으로 OWASP Top 10 을 가리킵니다. 탐지는 웹 방화벽이 잘못된 입력을 잡거나 알려진 공격 입력(payload)을 살피는 방식입니다(DET0740)."
+  },
+  "patterns": [
+    {
+      "id": "sql-in-request-argument",
+      "name": "요청 인자 안의 SQL 구문",
+      "condition": "요청 주소의 인자(?q=, ?id= 등)에 SQL 구문을 이어 붙인 표기가 들어 있고, 같은 주소에서 여러 번 반복된다.",
+      "evidence": "CISA AA23-158A: 클롭은 MOVEit Transfer 의 SQL 주입 취약점(CVE-2023-34362)으로 웹셸 LEMURLOOT 를 심었다.",
+      "source": "https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-158a"
+    },
+    {
+      "id": "script-tag-in-request-argument",
+      "name": "요청 인자 안의 스크립트 삽입 표기",
+      "condition": "요청 주소의 인자에 <script> 같은 스크립트 태그 표기가 들어 있고, 같은 주소에서 여러 번 반복된다. 태그 없이도 가능한 공격이라 태그만으로 판단하지 않는다.",
+      "evidence": "OWASP XSS: 악성 스크립트를 웹 앱에 주입하는 주입 공격이며 <script> 태그 없이도 가능하다.",
+      "source": "https://community.owasp.org/attacks/xss/"
+    },
+    {
+      "id": "path-traversal-repeat",
+      "name": "경로 거슬러 올라가기(../) 반복",
+      "condition": "파일·경로 인자에 ../ 같은 거슬러 올라가는 표기가 여러 단계 이어지고, 같은 주소에서 여러 번 반복된다.",
+      "evidence": "OWASP Path Traversal: 변수에 dot-dot-slash(../) 와 그 변형을 넣어 웹 루트 밖의 파일·폴더에 접근하려는 공격이다.",
+      "source": "https://community.owasp.org/attacks/Path_Traversal"
+    }
+  ]
+}

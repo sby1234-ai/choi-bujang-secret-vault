@@ -199,3 +199,30 @@ node xdr/brute-force/replay.mjs
 
 - Jev(확신도를 주는 쪽)와 판정기에 연결하지 않아서, 지금은 애매한 경보가 모두 `alert`이고 규칙이 실제 접속을 막지는 않습니다.
 - 위 시험은 가상 경보 28건에 대한 연습이며 실제 공격 차단이나 심판 판정이 아닙니다.
+
+## 보너스 xdr-02: 웹 주입 공격을 잡아 냅니다 (현재 상태)
+
+`xdr/web-injection/`의 모듈이 수업용 Wazuh 모양 경보(`xdr/fixtures/web-injection.json`, 실제 로그가 아닙니다)를 읽어 `block`·`alert`·`record`로 나눕니다. 경보 원본은 고치지 않습니다.
+
+### 현재 작동하는 기능
+
+- `read-alerts.mjs`: 경보마다 시각·출발 주소·계정·규칙 수준·설명만 뽑습니다. 비밀값처럼 보이는 값은 `[가림]`으로 바꿉니다. 경보 건수와 뽑은 줄 수가 같아야 합니다.
+- `patterns.json`: MITRE ATT&CK T1190(외부 공개 앱 악용)을 틀로 삼고, 요청 인자 안의 SQL 구문·스크립트 삽입 표기·경로 거슬러 올라가기(`../`) 반복 3개를 둡니다. T1190 원문은 이 신호를 직접 말하지 않아서, 패턴별 근거 한 줄은 CISA AA23-158A와 OWASP(XSS, Path Traversal)에서 가져왔고 출처 주소를 함께 적었습니다. 근거를 확인하지 못한 명령 구분자 패턴은 넣지 않았습니다.
+- `decide.mjs`: `decide(alert)`가 패턴·규칙 수준·반복 횟수로 나눕니다. 규칙 수준 10 이상이거나 패턴이 맞고 같은 요청이 5회 이상 반복되면 `block`, 규칙 수준 3 이하이고 반복이 없으면 `record`입니다. 나머지(수준 4~9 포함)는 애매한 경보로 보고 Jev 확신도(0.85 이상 `block`, 0.5 이상 `alert`, 그 아래 `record`)로 나눕니다. Jev가 응답하지 않으면 `alert`입니다. Jev 연결은 `configureJev()`로 하며 지금은 연결되어 있지 않습니다. 이 경계(`CLEAR_LEVEL`, `NORMAL_MAX_LEVEL`, `REPEAT_COUNT`)는 MITRE가 정한 값이 아니라 연습 경보의 분포에 맞춘 값입니다. `decide.mjs`는 다른 파일을 불러오지 않고 혼자 동작합니다.
+- `block-rules.mjs`, `replay.mjs`: 차단 후보만 만료 시각(기본 1시간)과 근거 경보 번호가 붙은 규칙으로 만들어 `xdr/web-injection/block-rules.json`에 두고, 알림을 `xdr/alerts.log`에 한 줄씩 쌓습니다. 같은 주소에 정상 이벤트가 있거나 반복이 확인되지 않는 단발 후보면 차단을 보류하고, 자기 자신(루프백) 주소는 막지 않습니다. 보너스 xdr-01의 규칙 파일(`xdr/block-rules.json`)과 섞이지 않게 규칙 파일을 따로 둡니다. `src/decider.mjs`는 고치지 않았고, 아직 판정기에 연결하지 않았습니다. 판정기 요청 계약에 출발 주소가 없어서, 운영 엔진이 주소를 제공하는 계약이 생긴 뒤 `isBlocked()`를 확인 단계로 붙일 수 있습니다.
+
+### 다시 실행하는 방법
+
+```
+npm run xdr:run -- web-injection
+node xdr/web-injection/read-alerts.mjs
+node xdr/web-injection/replay.mjs
+```
+
+`xdr:run`은 `xdr/web-injection/result.json`을 씁니다. 정상이면 `counts`가 `block 8 · alert 9 · record 9`이고 정상 이벤트를 `block`한 경우가 없어야 합니다. `replay.mjs`는 `xdr/web-injection/block-rules.json`과 `xdr/alerts.log`를 만들며, 마지막 줄이 `막힘 8 · 통과 18 · 정상 이벤트 막힘 0 · 판단과 다른 결과 0 · 만료 규칙 오류 0`이어야 합니다.
+
+### 아직 남은 약점
+
+- Jev(확신도를 주는 쪽)와 판정기에 연결하지 않아서, 지금은 애매한 경보가 모두 `alert`이고 규칙이 실제 접속을 막지는 않습니다.
+- 시험 경보의 요청 주소가 `doc-sql-chain` 같은 가상 표기라, 실제 공격 문자열은 판단 안에서 다룰 수 있게만 만들었고 실제 요청으로 시험하지 않았습니다.
+- 위 시험은 가상 경보 26건에 대한 연습이며 실제 공격 차단이나 심판 판정이 아닙니다.

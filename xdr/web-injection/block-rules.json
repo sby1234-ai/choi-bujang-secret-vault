@@ -1,0 +1,69 @@
+{
+  "schema": "aleph.xdr.block-rules.v1",
+  "rules": [
+    {
+      "ruleId": "xdr.web_injection_block",
+      "srcIp": "203.0.113.10",
+      "evidenceAlertIds": [
+        "wi-01",
+        "wi-02"
+      ],
+      "createdAt": "2026-09-27T00:13:01.000Z",
+      "expiresAt": "2026-09-27T01:13:20.000Z"
+    },
+    {
+      "ruleId": "xdr.web_injection_block",
+      "srcIp": "198.51.100.15",
+      "evidenceAlertIds": [
+        "wi-03"
+      ],
+      "createdAt": "2026-09-27T00:16:04.000Z",
+      "expiresAt": "2026-09-27T01:16:04.000Z"
+    },
+    {
+      "ruleId": "xdr.web_injection_block",
+      "srcIp": "192.0.2.15",
+      "evidenceAlertIds": [
+        "wi-04"
+      ],
+      "createdAt": "2026-09-27T01:02:11.000Z",
+      "expiresAt": "2026-09-27T02:02:11.000Z"
+    },
+    {
+      "ruleId": "xdr.web_injection_block",
+      "srcIp": "203.0.113.18",
+      "evidenceAlertIds": [
+        "wi-05"
+      ],
+      "createdAt": "2026-09-27T01:18:33.000Z",
+      "expiresAt": "2026-09-27T02:18:33.000Z"
+    },
+    {
+      "ruleId": "xdr.web_injection_block",
+      "srcIp": "198.51.100.18",
+      "evidenceAlertIds": [
+        "wi-06"
+      ],
+      "createdAt": "2026-09-27T02:07:08.000Z",
+      "expiresAt": "2026-09-27T03:07:08.000Z"
+    },
+    {
+      "ruleId": "xdr.web_injection_block",
+      "srcIp": "192.0.2.21",
+      "evidenceAlertIds": [
+        "wi-07"
+      ],
+      "createdAt": "2026-09-27T04:04:19.000Z",
+      "expiresAt": "2026-09-27T05:04:19.000Z"
+    },
+    {
+      "ruleId": "xdr.web_injection_block",
+      "srcIp": "203.0.113.22",
+      "evidenceAlertIds": [
+        "wi-08"
+      ],
+      "createdAt": "2026-09-27T05:26:02.000Z",
+      "expiresAt": "2026-09-27T06:26:02.000Z"
+    }
+  ]
+}
