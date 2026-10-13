@@ -16,6 +16,11 @@ export default async function handler(request, response) {
 
   try {
     if (request.method === 'GET') {
+      // 수정·삭제와 같은 방식으로, 먼저 id 만으로 저장된 소유자를 읽어 검증된 사용자와 대조합니다(아래 질의의 owner_id 조건은 그대로 둡니다).
+      const { data: stored, error: storedError } = await notes().select('id, owner_id').eq('id', id).maybeSingle();
+      if (storedError) return failed(response, storedError);
+      if (!stored) { logDenied('not_found_or_not_owner'); return reply(response, 404, { error: 'NOT_FOUND' }); }
+      if (!ownsRow(login, stored)) { logDenied('owner_mismatch'); return reply(response, 404, { error: 'NOT_FOUND' }); }
       const { data, error } = await notes()
         .select('id, owner_id, title, content')
         .eq('id', id)
