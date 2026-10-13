@@ -1,0 +1,79 @@
+{
+  "schema": "aleph.xdr.block-rules.v1",
+  "rules": [
+    {
+      "ruleId": "xdr.exfiltration_block_destination",
+      "dstIp": "203.0.113.50",
+      "evidenceAlertIds": [
+        "ex-01",
+        "ex-03"
+      ],
+      "createdAt": "2026-09-27T00:16:03.000Z",
+      "expiresAt": "2026-09-27T02:05:14.000Z"
+    },
+    {
+      "ruleId": "xdr.exfiltration_block_destination",
+      "dstIp": "198.51.100.40",
+      "evidenceAlertIds": [
+        "ex-02",
+        "ex-04"
+      ],
+      "createdAt": "2026-09-27T00:16:48.000Z",
+      "expiresAt": "2026-09-27T02:20:07.000Z"
+    },
+    {
+      "ruleId": "xdr.exfiltration_block_destination",
+      "dstIp": "203.0.113.55",
+      "evidenceAlertIds": [
+        "ex-05"
+      ],
+      "createdAt": "2026-09-27T02:04:26.000Z",
+      "expiresAt": "2026-09-27T03:04:26.000Z"
+    },
+    {
+      "ruleId": "xdr.exfiltration_block_destination",
+      "dstIp": "192.0.2.90",
+      "evidenceAlertIds": [
+        "ex-06"
+      ],
+      "createdAt": "2026-09-27T03:02:19.000Z",
+      "expiresAt": "2026-09-27T04:02:19.000Z"
+    },
+    {
+      "ruleId": "xdr.exfiltration_block_destination",
+      "dstIp": "198.51.100.45",
+      "evidenceAlertIds": [
+        "ex-07"
+      ],
+      "createdAt": "2026-09-27T04:12:08.000Z",
+      "expiresAt": "2026-09-27T05:12:08.000Z"
+    },
+    {
+      "ruleId": "xdr.exfiltration_block_destination",
+      "dstIp": "203.0.113.60",
+      "evidenceAlertIds": [
+        "ex-08"
+      ],
+      "createdAt": "2026-09-27T05:03:41.000Z",
+      "expiresAt": "2026-09-27T06:03:41.000Z"
+    },
+    {
+      "ruleId": "xdr.exfiltration_block_destination",
+      "dstIp": "203.0.113.61",
+      "evidenceAlertIds": [
+        "ex-09"
+      ],
+      "createdAt": "2026-09-27T06:08:12.000Z",
+      "expiresAt": "2026-09-27T07:08:12.000Z"
+    },
+    {
+      "ruleId": "xdr.exfiltration_block_destination",
+      "dstIp": "198.51.100.46",
+      "evidenceAlertIds": [
+        "ex-10"
+      ],
+      "createdAt": "2026-09-27T07:01:05.000Z",
+      "expiresAt": "2026-09-27T08:01:05.000Z"
+    }
+  ]
+}

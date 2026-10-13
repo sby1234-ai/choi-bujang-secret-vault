@@ -1,0 +1,191 @@
+{
+  "schema": "aleph.xdr.result.v1",
+  "moduleKey": "exfiltration",
+  "decisions": [
+    {
+      "alertId": "ex-01",
+      "action": "block",
+      "confidence": 0.94,
+      "reason": "처음 보는 목적지로 대용량 전송"
+    },
+    {
+      "alertId": "ex-02",
+      "action": "block",
+      "confidence": 0.96,
+      "reason": "처음 보는 목적지로 대용량 전송 · 업무 시간 밖 압축 파일 반출"
+    },
+    {
+      "alertId": "ex-03",
+      "action": "block",
+      "confidence": 0.94,
+      "reason": "처음 보는 목적지로 대용량 전송"
+    },
+    {
+      "alertId": "ex-04",
+      "action": "block",
+      "confidence": 0.92,
+      "reason": "처음 보는 목적지로 대용량 전송"
+    },
+    {
+      "alertId": "ex-05",
+      "action": "block",
+      "confidence": 0.92,
+      "reason": "처음 보는 목적지로 대용량 전송"
+    },
+    {
+      "alertId": "ex-06",
+      "action": "block",
+      "confidence": 0.96,
+      "reason": "처음 보는 목적지로 대용량 전송"
+    },
+    {
+      "alertId": "ex-07",
+      "action": "block",
+      "confidence": 0.96,
+      "reason": "처음 보는 목적지로 대용량 전송 · 업무 시간 밖 압축 파일 반출"
+    },
+    {
+      "alertId": "ex-08",
+      "action": "block",
+      "confidence": 0.94,
+      "reason": "명령 통로를 이용한 자료 전송"
+    },
+    {
+      "alertId": "ex-09",
+      "action": "block",
+      "confidence": 0.98,
+      "reason": "처음 보는 목적지로 대용량 전송 · 명령 통로를 이용한 자료 전송"
+    },
+    {
+      "alertId": "ex-10",
+      "action": "block",
+      "confidence": 0.92,
+      "reason": "처음 보는 목적지로 대용량 전송"
+    },
+    {
+      "alertId": "ex-11",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "처음 보는 목적지로 대용량 전송 패턴과 일부만 맞습니다(뚜렷한 조건은 아님)"
+    },
+    {
+      "alertId": "ex-12",
+      "action": "alert",
+      "confidence": 0.63,
+      "reason": "처음 보는 목적지로 대용량 전송 패턴과 일부만 맞습니다(뚜렷한 조건은 아님)"
+    },
+    {
+      "alertId": "ex-13",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "업무 시간 밖 압축 파일 반출 패턴과 일부만 맞습니다(뚜렷한 조건은 아님)"
+    },
+    {
+      "alertId": "ex-14",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "처음 보는 목적지로 대용량 전송 패턴과 일부만 맞습니다(뚜렷한 조건은 아님)"
+    },
+    {
+      "alertId": "ex-15",
+      "action": "alert",
+      "confidence": 0.58,
+      "reason": "처음 보는 목적지로 대용량 전송 패턴과 일부만 맞습니다(뚜렷한 조건은 아님)"
+    },
+    {
+      "alertId": "ex-16",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "처음 보는 목적지로 대용량 전송 패턴과 일부만 맞습니다(뚜렷한 조건은 아님)"
+    },
+    {
+      "alertId": "ex-17",
+      "action": "alert",
+      "confidence": 0.58,
+      "reason": "처음 보는 목적지로 대용량 전송 패턴과 일부만 맞습니다(뚜렷한 조건은 아님)"
+    },
+    {
+      "alertId": "ex-18",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "처음 보는 목적지로 대용량 전송 패턴과 일부만 맞습니다(뚜렷한 조건은 아님)"
+    },
+    {
+      "alertId": "ex-19",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "명령 통로를 이용한 자료 전송 패턴과 일부만 맞습니다(뚜렷한 조건은 아님)"
+    },
+    {
+      "alertId": "ex-20",
+      "action": "alert",
+      "confidence": 0.58,
+      "reason": "업무 시간 밖 압축 파일 반출 패턴과 일부만 맞습니다(뚜렷한 조건은 아님)"
+    },
+    {
+      "alertId": "ex-21",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "큰 자료가 낯선 곳으로 나가는 형태와 맞는 패턴이 없는 정상 이벤트입니다"
+    },
+    {
+      "alertId": "ex-22",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "큰 자료가 낯선 곳으로 나가는 형태와 맞는 패턴이 없는 정상 이벤트입니다"
+    },
+    {
+      "alertId": "ex-23",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "큰 자료가 낯선 곳으로 나가는 형태와 맞는 패턴이 없는 정상 이벤트입니다"
+    },
+    {
+      "alertId": "ex-24",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "큰 자료가 낯선 곳으로 나가는 형태와 맞는 패턴이 없는 정상 이벤트입니다"
+    },
+    {
+      "alertId": "ex-25",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "큰 자료가 낯선 곳으로 나가는 형태와 맞는 패턴이 없는 정상 이벤트입니다"
+    },
+    {
+      "alertId": "ex-26",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "큰 자료가 낯선 곳으로 나가는 형태와 맞는 패턴이 없는 정상 이벤트입니다"
+    },
+    {
+      "alertId": "ex-27",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "큰 자료가 낯선 곳으로 나가는 형태와 맞는 패턴이 없는 정상 이벤트입니다"
+    },
+    {
+      "alertId": "ex-28",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "큰 자료가 낯선 곳으로 나가는 형태와 맞는 패턴이 없는 정상 이벤트입니다"
+    },
+    {
+      "alertId": "ex-29",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "큰 자료가 낯선 곳으로 나가는 형태와 맞는 패턴이 없는 정상 이벤트입니다"
+    },
+    {
+      "alertId": "ex-30",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "큰 자료가 낯선 곳으로 나가는 형태와 맞는 패턴이 없는 정상 이벤트입니다"
+    }
+  ],
+  "counts": {
+    "block": 10,
+    "alert": 10,
+    "record": 10
+  }
+}

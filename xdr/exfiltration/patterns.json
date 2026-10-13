@@ -1,0 +1,33 @@
+{
+  "schema": "aleph.xdr.patterns.v1",
+  "moduleKey": "exfiltration",
+  "technique": {
+    "id": "T1048",
+    "name": "Exfiltration Over Alternative Protocol",
+    "source": "https://attack.mitre.org/techniques/T1048/",
+    "note": "T1048 은 평소 업무에 쓰지 않는 프로토콜이나 포트로 자료를 밖으로 빼는 방식이고, T1041(명령 통로로 유출)은 공격자가 이미 쓰는 원격 명령 통로로 같은 자료를 실어 보내는 방식입니다. 두 방식 모두 평소와 다른 목적지로 큰 자료가 나가는 모습으로 드러납니다."
+  },
+  "patterns": [
+    {
+      "id": "large-transfer-to-new-destination",
+      "name": "처음 보는 목적지로 대용량 전송",
+      "condition": "처음 보는 목적지나 주소로 자료가 짧은 시간에 많은 건수·큰 용량으로 나가거나 같은 목적지로 대용량 전송이 반복되거나 평소에 쓰지 않던 포트로 자료가 연속 전송된다. 전송량이 큰 경우에만 근거로 삼는다. 평소 목적지(수업 자료 주소)로 가는 전송, 작은 파일 몇 건, 실패 1건으로 끝난 전송, 백업처럼 보이는 전송 1건은 판단 근거로 쓰지 않는다.",
+      "evidence": "MITRE T1048: 공격자는 평소 쓰지 않는 경로로 대량의 자료를 외부 목적지로 빼내며, 처음 보는 목적지로의 큰 전송이 대표적인 신호다.",
+      "source": "https://attack.mitre.org/techniques/T1048/"
+    },
+    {
+      "id": "off-hours-archive-exfiltration",
+      "name": "업무 시간 밖 압축 파일 반출",
+      "condition": "수업 시간 밖에 압축 파일이 처음 보는 주소로 나가거나 압축 파일이 연속으로 올라간다. 수업 시간에 압축 파일을 만들기만 했거나 압축 파일을 연 뒤 일부만 나간 경우는 판단 근거로 쓰지 않는다.",
+      "evidence": "MITRE T1048: 공격자는 모은 자료를 압축해 업무 시간 밖에 평소와 다른 주소로 한꺼번에 옮겨 들키지 않고 반출한다.",
+      "source": "https://attack.mitre.org/techniques/T1048/"
+    },
+    {
+      "id": "command-channel-exfiltration",
+      "name": "명령 통로를 이용한 자료 전송",
+      "condition": "원격 명령 통로로 큰 파일이 처음 보는 목적지에 반복 전송되거나 자료실 전체가 외부 주소로 복사된다. 명령 통로에 짧은 자료 이름이 몇 번 보였을 뿐 큰 파일이 아닌 경우는 판단 근거로 쓰지 않는다.",
+      "evidence": "MITRE T1041: 공격자는 이미 쓰는 명령 통제 통로로 자료를 함께 실어 보내 별도 통로 없이 반출한다.",
+      "source": "https://attack.mitre.org/techniques/T1041/"
+    }
+  ]
+}
