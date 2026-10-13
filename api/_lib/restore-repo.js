@@ -14,29 +14,32 @@ function connect() {
 
 export function restoreRepo() {
   const db = connect();
-  const notes = () => db.from('notes');
   return {
-    async readBackup(id) {
+    // 사본에서 이 ID·소유자의 행을 배열로 읽습니다(한 건이어야 정상입니다).
+    async readBackups(id, ownerId) {
       const { data, error } = await db.from('notes_backup')
-        .select('id, owner_id, title, content, content_sha256').eq('id', id).maybeSingle();
+        .select('id, owner_id, title, content, content_sha256').eq('id', id).eq('owner_id', ownerId);
       if (error) throw error;
-      return data;
+      return Array.isArray(data) ? data : [];
     },
-    async readNote(id) {
-      const { data, error } = await notes().select('id, owner_id, title, content').eq('id', id).maybeSingle();
+    // 메모를 ID로 읽습니다. ownerId를 주면 그 소유자의 행만 읽습니다.
+    async readNotes(id, ownerId) {
+      let query = db.from('notes').select('id, owner_id, title, content').eq('id', id);
+      if (ownerId) query = query.eq('owner_id', ownerId);
+      const { data, error } = await query;
       if (error) throw error;
-      return data;
+      return Array.isArray(data) ? data : [];
     },
     async insertNote(row) {
-      const { error } = await notes().insert(row);
+      const { error } = await db.from('notes').insert(row);
       if (error?.code === '23505') return { conflict: true };
       if (error) throw error;
       return { conflict: false };
     },
-    async updateNote(id, fields) {
-      // owner_id·title·content를 사본 값으로 되돌리고, id 조건으로 한 건만 고칩니다. 응답의 바뀐 행은 읽지 않습니다(쓴 뒤 다시 읽어 확인합니다).
-      const { error } = await notes()
-        .update({ owner_id: fields.owner_id, title: fields.title, content: fields.content }).eq('id', id);
+    async updateNote(id, ownerId, fields) {
+      // title·content만 바꾸고, id·owner_id 조건으로 한 건만 고칩니다. 응답의 바뀐 행은 읽지 않습니다(쓴 뒤 다시 읽어 확인합니다).
+      const { error } = await db.from('notes').update({ title: fields.title, content: fields.content })
+        .eq('id', id).eq('owner_id', ownerId);
       if (error) throw error;
     },
     async writeAudit(entry) {

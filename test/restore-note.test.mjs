@@ -11,22 +11,31 @@ const OTHER = '33333333-3333-4333-8333-333333333333';
 const saved = (id, owner, title, content) => ({ id, owner_id: owner, title, content, content_sha256: contentHash({ title, content }) });
 const TAMPERED = { title: '바뀐 제목', content: '침해로 바뀐 내용' };
 const ORIGINAL = { title: 'B 제목', content: 'B 원래 내용' };
+const originalHash = contentHash(ORIGINAL);
 
 // 가짜 저장소: 사본 표, 메모 표, 감사 기록을 메모리에 둡니다. 쓰기(updateNote)는 바뀐 행 수를 돌려주지 않습니다.
-function fakeRepo({ backups, notes, auditFails = false, noopUpdate = false }) {
-  const state = { backups: new Map(backups.map(r => [r.id, r])), notes: new Map(notes.map(r => [r.id, { ...r }])), audit: [], writes: [] };
+function fakeRepo({ backups, notes, auditFails = false, noopUpdate = false, writeFails = false, readFails = false }) {
+  const state = { backups: backups.map(r => ({ ...r })), notes: new Map(notes.map(r => [r.id, { ...r }])), audit: [], writes: [] };
   return {
     state,
-    async readBackup(id) { return state.backups.get(id) ?? null; },
-    async readNote(id) { return state.notes.get(id) ? { ...state.notes.get(id) } : null; },
+    async readBackups(id, owner) {
+      if (readFails) throw new Error('down');
+      return state.backups.filter(r => r.id === id && r.owner_id === owner).map(r => ({ ...r }));
+    },
+    async readNotes(id, owner) {
+      const row = state.notes.get(id);
+      return row && (!owner || row.owner_id === owner) ? [{ ...row }] : [];
+    },
     async insertNote(row) {
+      if (writeFails) throw new Error('write');
       if (state.notes.has(row.id)) return { conflict: true };
       state.notes.set(row.id, { ...row }); state.writes.push(['insert', row.id]); return { conflict: false };
     },
-    async updateNote(id, fields) {
+    async updateNote(id, owner, fields) {
+      if (writeFails) throw new Error('write');
       if (noopUpdate) return undefined;
       const row = state.notes.get(id);
-      if (!row) return undefined;
+      if (!row || row.owner_id !== owner) return undefined;
       Object.assign(row, fields); state.writes.push(['update', id]); return undefined;
     },
     async writeAudit(entry) { if (auditFails) throw new Error('x'); state.audit.push(entry); },
@@ -42,7 +51,7 @@ const world = (extra = {}) => ({
   ...extra,
 });
 const run = (repo, userId, input) => restoreNote({ userId, input, repo });
-const originalHash = contentHash(ORIGINAL);
+const audited = (repo) => repo.state.audit.map(entry => entry.result);
 
 test('B가 자기 메모 한 건을 되살리면 응답은 id·restored·contentSha256 세 항목뿐이다', async () => {
   const repo = fakeRepo(world());
@@ -53,7 +62,7 @@ test('B가 자기 메모 한 건을 되살리면 응답은 id·restored·content
   const row = repo.state.notes.get(NOTE_B);
   assert.equal(row.id, NOTE_B);
   assert.equal(row.owner_id, B);
-  assert.equal(contentHash(row), repo.state.backups.get(NOTE_B).content_sha256);
+  assert.equal(contentHash(row), repo.state.backups[0].content_sha256);
   assert.equal(JSON.stringify(result.body).includes('원래 내용'), false);
 });
 
@@ -62,10 +71,9 @@ test('다른 메모는 바뀌지 않고 감사 기록은 한 줄만 늘어난다
   await run(repo, B, { id: NOTE_B });
   assert.deepEqual(repo.state.writes, [['update', NOTE_B]]);
   assert.deepEqual(repo.state.notes.get(NOTE_A), { id: NOTE_A, owner_id: A, title: 'A 제목', content: 'A 내용' });
-  assert.equal(repo.state.audit.length, 1);
-  assert.deepEqual(repo.state.audit[0], {
-    note_id: NOTE_B, owner_id: B, before_sha256: contentHash(TAMPERED), content_sha256: originalHash, outcome: 'restored',
-  });
+  assert.deepEqual(repo.state.audit, [{
+    note_id: NOTE_B, owner_id: B, result: 'restored', before_sha256: contentHash(TAMPERED), after_sha256: originalHash,
+  }]);
   assert.equal(JSON.stringify(repo.state.audit[0]).includes('원래 내용'), false);
 });
 
@@ -76,21 +84,38 @@ test('쓰기 응답에 바뀐 행 정보가 없어도, 다시 읽어 사본과 �
   assert.equal(result.body.restored, true);
 });
 
-test('쓰기가 아무것도 바꾸지 못하면 500으로 멈추고 감사 기록을 남기지 않는다', async () => {
+test('쓰기가 아무것도 바꾸지 못하면 500으로 멈추고, 실패 시도로 감사 기록에 남는다', async () => {
   const repo = fakeRepo(world({ noopUpdate: true }));
   const result = await run(repo, B, { id: NOTE_B });
   assert.equal(result.status, 500);
-  assert.equal(result.body.error, 'RESTORE_VERIFY_FAILED');
-  assert.equal(repo.state.audit.length, 0);
+  assert.equal(result.body.error, 'restore_verification_failed');
+  assert.deepEqual(audited(repo), ['restore_verification_failed']);
+  assert.equal(repo.state.audit[0].before_sha256, contentHash(TAMPERED));
+});
+
+test('쓰기 요청이 실패하면 500 restore_failed이고 감사 기록에 남는다', async () => {
+  const repo = fakeRepo(world({ writeFails: true }));
+  const result = await run(repo, B, { id: NOTE_B });
+  assert.equal(result.status, 500);
+  assert.equal(result.body.error, 'restore_failed');
+  assert.deepEqual(audited(repo), ['restore_failed']);
+});
+
+test('저장소를 읽지 못하면 500 restore_unavailable이고 감사 기록에 남는다', async () => {
+  const repo = fakeRepo(world({ readFails: true }));
+  const result = await run(repo, B, { id: NOTE_B });
+  assert.equal(result.status, 500);
+  assert.equal(result.body.error, 'restore_unavailable');
+  assert.deepEqual(audited(repo), ['restore_unavailable']);
 });
 
 test('B가 A의 메모 번호로 요청하면 404이고 아무것도 쓰지 않으며, 거부된 시도도 감사 기록에 남는다', async () => {
-  const repo = fakeRepo(world());
+  const repo = fakeRepo(world({ backups: [saved(NOTE_B, B, ORIGINAL.title, ORIGINAL.content), saved(NOTE_A, A, 'A 제목', 'A 내용')] }));
   const result = await run(repo, B, { id: NOTE_A });
   assert.equal(result.status, 404);
-  assert.deepEqual(result.body, { error: 'NOT_FOUND' });
+  assert.deepEqual(result.body, { error: 'backup_not_found' });
   assert.deepEqual(repo.state.writes, []);
-  assert.deepEqual(repo.state.audit, [{ note_id: NOTE_A, owner_id: B, before_sha256: null, content_sha256: null, outcome: 'backup_not_found' }]);
+  assert.deepEqual(repo.state.audit, [{ note_id: NOTE_A, owner_id: B, result: 'backup_not_found', before_sha256: null, after_sha256: null }]);
 });
 
 test('사본이 없는 메모는 본인 것이어도 복원하지 않고 404이며 감사 기록에 남는다', async () => {
@@ -99,7 +124,7 @@ test('사본이 없는 메모는 본인 것이어도 복원하지 않고 404이�
   assert.equal(result.status, 404);
   assert.deepEqual(repo.state.writes, []);
   assert.equal((await run(repo, B, { id: OTHER })).status, 404);
-  assert.deepEqual(repo.state.audit.map(row => row.outcome), ['backup_not_found', 'backup_not_found']);
+  assert.deepEqual(audited(repo), ['backup_not_found', 'backup_not_found']);
 });
 
 test('A 정상 요청은 영향이 없고 사본에 없는 A 메모는 그대로이다', async () => {
@@ -116,8 +141,7 @@ test('이미 같은 메모는 쓰지 않고 restored:false 응답과 unchanged �
   assert.equal(result.status, 200);
   assert.deepEqual(result.body, { id: NOTE_B, restored: false, contentSha256: originalHash });
   assert.deepEqual(repo.state.writes, []);
-  assert.equal(repo.state.audit.length, 1);
-  assert.equal(repo.state.audit[0].outcome, 'unchanged');
+  assert.deepEqual(audited(repo), ['unchanged']);
 });
 
 test('메모가 지워졌으면 같은 ID·소유자로 다시 만든다', async () => {
@@ -126,8 +150,10 @@ test('메모가 지워졌으면 같은 ID·소유자로 다시 만든다', async
   assert.equal(result.status, 200);
   assert.equal(result.body.restored, true);
   assert.equal(repo.state.notes.get(NOTE_B).owner_id, B);
-  assert.equal(repo.state.audit[0].outcome, 'created');
+  assert.deepEqual(repo.state.writes, [['insert', NOTE_B]]);
+  assert.equal(repo.state.audit[0].result, 'restored');
   assert.equal(repo.state.audit[0].before_sha256, null);
+  assert.equal(repo.state.audit[0].after_sha256, originalHash);
 });
 
 test('사본 내용이 해시와 맞지 않으면 409로 중단하고 쓰지 않으며, 검증 실패를 감사 기록에 남긴다', async () => {
@@ -136,51 +162,40 @@ test('사본 내용이 해시와 맞지 않으면 409로 중단하고 쓰지 않
   const repo = fakeRepo(w);
   const result = await run(repo, B, { id: NOTE_B });
   assert.equal(result.status, 409);
-  assert.equal(result.body.error, 'BACKUP_INVALID');
+  assert.equal(result.body.error, 'backup_verification_failed');
   assert.deepEqual(repo.state.writes, []);
   assert.equal(repo.state.notes.get(NOTE_B).title, '바뀐 제목');
-  assert.deepEqual(repo.state.audit.map(row => row.outcome), ['backup_verification_failed']);
+  assert.deepEqual(audited(repo), ['backup_verification_failed']);
 });
 
-test('소유자가 바뀐 메모도 사본의 소유자로 되돌리고, ID·소유자·내용 해시를 사본과 같게 만든다', async () => {
+test('사본이 같은 ID로 두 건이면 검증 실패로 보고 쓰지 않는다', async () => {
+  const w = world();
+  w.backups.push({ ...w.backups[0] });
+  const repo = fakeRepo(w);
+  const result = await run(repo, B, { id: NOTE_B });
+  assert.equal(result.status, 409);
+  assert.equal(result.body.error, 'backup_verification_failed');
+  assert.deepEqual(repo.state.writes, []);
+});
+
+test('현재 메모의 소유자가 사본과 다르면 덮어쓰지 않고 409이며 감사 기록에 남는다', async () => {
   const w = world();
   w.notes[0] = { ...w.notes[0], owner_id: A };
   const repo = fakeRepo(w);
   const result = await run(repo, B, { id: NOTE_B });
-  assert.equal(result.status, 200);
-  assert.deepEqual(result.body, { id: NOTE_B, restored: true, contentSha256: originalHash });
-  const row = repo.state.notes.get(NOTE_B);
-  assert.equal(row.id, NOTE_B);
-  assert.equal(row.owner_id, B);
-  assert.equal(contentHash(row), originalHash);
-  assert.deepEqual(repo.state.writes, [['update', NOTE_B]]);
-  assert.equal(repo.state.notes.get(NOTE_A).owner_id, A);
-  assert.deepEqual(repo.state.audit.map(entry => entry.outcome), ['restored']);
+  assert.equal(result.status, 409);
+  assert.equal(result.body.error, 'note_owner_mismatch');
+  assert.deepEqual(repo.state.writes, []);
+  assert.deepEqual(audited(repo), ['note_owner_mismatch']);
 });
 
-test('내용은 사본과 같지만 소유자만 바뀐 메모도 소유자를 되돌린다', async () => {
-  const w = world();
-  w.notes[0] = { id: NOTE_B, owner_id: A, ...ORIGINAL };
-  const repo = fakeRepo(w);
-  const result = await run(repo, B, { id: NOTE_B });
-  assert.equal(result.status, 200);
-  assert.equal(result.body.restored, true);
-  assert.equal(repo.state.notes.get(NOTE_B).owner_id, B);
-  assert.equal(repo.state.audit[0].outcome, 'restored');
-});
-
-test('복원 성공 뒤 감사 기록을 쓰지 못하면 성공 응답을 주지 않는다', async () => {
-  const repo = fakeRepo(world({ auditFails: true }));
-  const result = await run(repo, B, { id: NOTE_B });
-  assert.equal(result.status, 500);
-  assert.deepEqual(result.body, { error: 'restore_audit_failed' });
-});
-
-test('거부된 시도의 감사 기록이 실패해도 원래의 거부 응답은 그대로이다', async () => {
-  const repo = fakeRepo(world({ auditFails: true }));
-  const result = await run(repo, B, { id: NOTE_A });
-  assert.equal(result.status, 404);
-  assert.deepEqual(result.body, { error: 'NOT_FOUND' });
+test('감사 기록을 쓰지 못하면 성공이든 거부든 500 restore_audit_failed로 답한다', async () => {
+  const ok = await run(fakeRepo(world({ auditFails: true })), B, { id: NOTE_B });
+  assert.equal(ok.status, 500);
+  assert.deepEqual(ok.body, { error: 'restore_audit_failed' });
+  const denied = await run(fakeRepo(world({ auditFails: true })), B, { id: NOTE_A });
+  assert.equal(denied.status, 500);
+  assert.deepEqual(denied.body, { error: 'restore_audit_failed' });
 });
 
 test('입력: id 하나만 받고 그 밖의 항목은 모두 거부한다', () => {

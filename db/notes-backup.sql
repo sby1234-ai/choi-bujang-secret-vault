@@ -21,23 +21,30 @@ revoke all on table public.notes_backup from authenticated;
 grant select, insert on table public.notes_backup to service_role;
 
 create table if not exists public.notes_restore_audit (
-  id             bigint generated always as identity primary key,
-  note_id        uuid not null,
-  owner_id       uuid not null,
-  -- 복원 전 해시(새로 만든 경우·거부된 시도는 비어 있음)와 복원 뒤 해시(거부된 시도는 비어 있음)입니다.
-  before_sha256  text check (before_sha256 is null or before_sha256 ~ '^[0-9a-f]{64}$'),
-  content_sha256 text check (content_sha256 is null or content_sha256 ~ '^[0-9a-f]{64}$'),
-  -- 성공(restored·created·unchanged)뿐 아니라 거부된 시도도 한 줄씩 남깁니다.
-  outcome        text not null,
-  at             timestamptz not null default now()
+  id            bigint generated always as identity primary key,
+  note_id       uuid not null,
+  owner_id      uuid not null,
+  -- 결과: restored, unchanged, backup_not_found, backup_verification_failed, note_owner_mismatch, restore_failed, restore_verification_failed, restore_unavailable
+  result        text not null,
+  -- 복원 전 해시(메모가 없었거나 거부된 시도는 비어 있음)와 복원 뒤 해시(거부된 시도는 비어 있음)입니다.
+  before_sha256 text check (before_sha256 is null or before_sha256 ~ '^[0-9a-f]{64}$'),
+  after_sha256  text check (after_sha256 is null or after_sha256 ~ '^[0-9a-f]{64}$'),
+  at            timestamptz not null default now()
 );
 
--- 이미 이전 모양의 표가 있는 경우를 위한 변경입니다(여러 번 실행해도 됩니다).
+-- 이전 모양의 표(outcome·content_sha256 열)가 있는 경우를 위한 변경입니다(여러 번 실행해도 됩니다).
+do $$
+begin
+  if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'notes_restore_audit' and column_name = 'outcome') then
+    alter table public.notes_restore_audit rename column outcome to result;
+  end if;
+  if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'notes_restore_audit' and column_name = 'content_sha256') then
+    alter table public.notes_restore_audit rename column content_sha256 to after_sha256;
+  end if;
+end $$;
 alter table public.notes_restore_audit add column if not exists before_sha256 text;
-alter table public.notes_restore_audit alter column content_sha256 drop not null;
+alter table public.notes_restore_audit alter column after_sha256 drop not null;
 alter table public.notes_restore_audit drop constraint if exists notes_restore_audit_outcome_check;
-alter table public.notes_restore_audit add constraint notes_restore_audit_outcome_check
-  check (outcome in ('restored', 'created', 'unchanged', 'backup_not_found', 'backup_verification_failed', 'owner_conflict'));
 alter table public.notes_restore_audit drop constraint if exists notes_restore_audit_before_sha256_check;
 alter table public.notes_restore_audit add constraint notes_restore_audit_before_sha256_check
   check (before_sha256 is null or before_sha256 ~ '^[0-9a-f]{64}$');
@@ -76,5 +83,5 @@ on conflict (id) do nothing;
 --    select b.id = n.id as same_id, b.owner_id = n.owner_id as same_owner,
 --           b.content_sha256 = encode(sha256(convert_to(n.title || E'\n' || n.content, 'UTF8')), 'hex') as same_hash
 --      from public.notes_backup b join public.notes n on n.id = b.id where b.id = '<메모 번호>';
--- 4) 감사 기록: select id, note_id, outcome, at from public.notes_restore_audit order by id;
+-- 4) 감사 기록: select id, note_id, result, before_sha256, after_sha256, at from public.notes_restore_audit order by id;
 -- 5) 감사 표 모양: select column_name, is_nullable from information_schema.columns where table_name = 'notes_restore_audit' order by ordinal_position;
