@@ -11,9 +11,10 @@
     "detect:test": "node scripts/detect-test.mjs",
     "fixture:7": "node scripts/fixture-7.mjs",
     "xdr:run": "node scripts/xdr-run.mjs",
-    "restore:plan": "node src/restore-plan.mjs",
-    "restore:apply": "node src/restore-apply.mjs",
-    "test:restore": "node --test test/restore-plan.test.mjs test/restore-apply.test.mjs test/restore-note.test.mjs"
+    "policy:manifest": "node scripts/policy-make-manifest.mjs",
+    "policy:diff": "node scripts/policy-diff.mjs",
+    "policy:restore": "node scripts/policy-restore.mjs",
+    "test:restore": "node --test test/policy-restore.test.mjs test/restore-note.test.mjs"
   },
   "engines": {
     "node": ">=22"

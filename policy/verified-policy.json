@@ -1,0 +1,24 @@
+{
+  "schema": "vault.policy.verified.v1",
+  "label": "검증된 정책 사본",
+  "verifiedCommit": "13e3b09e8ee08977cbdd3fa4402f2b97369fd2aa",
+  "verifiedAt": "2026-10-13T14:18:22+09:00",
+  "files": {
+    "src/decider.mjs": "807da395c8e49f849fb88f5717cf02661f9f8aaacb6baa3d35070d831d746543",
+    "src/resources.mjs": "5a547dba5f32dffa998ace79614fd10c4473f49a9042c21f8d7b2715f9c75e56",
+    "src/detect.mjs": "2cd1a78a12623e99dd31015e27773675cb03269cb3aafa475ab295beedaaf245",
+    "src/verify-login.mjs": "c8fa6842c7904f9430e002bd92207d4aef9d54739a712f716153a2cb96e7389b",
+    "api/notes.js": "dc86636019062a741637ce3bce35a436130703637d0f913f4f734aa6f4ffbe1e",
+    "api/notes/[id].js": "c86f9259d2f5294460f4c246422ab52a9eb48a4fb4d27094f17b59aed96ff2bb",
+    "api/_lib/notes-api.js": "0d609e433b923b0123fcb6fa793e0291c827c9c1539d6b3950195aa602ff194e",
+    "aleph.config.json": {
+      "sha256": "a7f018c04f378a720d9edd864ebe0601efec407593b2f17aa43c9315c9830845",
+      "policyKeys": [
+        "identityProvider",
+        "allowedRoutes",
+        "originalApiUrl"
+      ]
+    },
+    "vercel.json": "83173ab8a0ac1bb98ac44dd64b1933c1ee5496a6b7c8205fffa769dcd99116a6"
+  }
+}
