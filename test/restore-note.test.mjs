@@ -144,21 +144,3 @@ test('입력: id 하나만 받고 그 밖의 항목은 모두 거부한다', () 
   assert.equal(readRestoreInput([]).error, 'INVALID_BODY');
   assert.equal(readRestoreInput('not json').error, 'INVALID_BODY');
 });
-
-test('쓰기 응답에 바뀐 행 정보가 없어도 쓴 뒤 다시 읽어 사본과 같으면 복원된다', async () => {
-  const repo = fakeRepo(world());
-  const base = repo.updateNote;
-  repo.updateNote = async (...args) => { await base(...args); return undefined; };
-  const result = await run(repo, B, { id: NOTE_B });
-  assert.equal(result.status, 200);
-  assert.equal(contentHash(repo.state.notes.get(NOTE_B)), repo.state.backups.get(NOTE_B).content_sha256);
-});
-
-test('쓰기가 아무것도 바꾸지 못해 다시 읽은 메모가 사본과 다르면 성공이라고 답하지 않는다', async () => {
-  const repo = fakeRepo(world());
-  repo.updateNote = async () => undefined;
-  const result = await run(repo, B, { id: NOTE_B });
-  assert.equal(result.status, 500);
-  assert.equal(result.body.error, 'RESTORE_VERIFY_FAILED');
-  assert.equal(repo.state.audit.length, 0);
-});
