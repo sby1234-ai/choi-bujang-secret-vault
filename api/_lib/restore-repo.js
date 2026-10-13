@@ -1,20 +1,23 @@
 // 메모 복원이 쓰는 저장소 접근입니다. 서버 전용 키는 환경변수에서만 읽고, 응답·로그에 넣지 않습니다.
 // notes_backup(사본)은 읽기만, notes는 복원 대상 한 건만, notes_restore_audit(감사 기록)는 덧붙이기만 합니다.
+// 연결은 요청마다 새로 만들고, fetch도 호출하는 순간의 globalThis.fetch를 씁니다(이전 요청의 연결·상태를 재사용하지 않습니다).
 import { createClient } from '@supabase/supabase-js';
-import { notes } from './notes-api.js';
 
-let database;
-const client = () => {
-  database ??= createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY, {
+const liveFetch = (...args) => globalThis.fetch(...args);
+
+function connect() {
+  return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
+    global: { fetch: liveFetch },
   });
-  return database;
-};
+}
 
 export function restoreRepo() {
+  const db = connect();
+  const notes = () => db.from('notes');
   return {
     async readBackup(id) {
-      const { data, error } = await client().from('notes_backup')
+      const { data, error } = await db.from('notes_backup')
         .select('id, owner_id, title, content, content_sha256').eq('id', id).maybeSingle();
       if (error) throw error;
       return data;
@@ -31,13 +34,13 @@ export function restoreRepo() {
       return { conflict: false };
     },
     async updateNote(id, ownerId, fields) {
-      const { data, error } = await notes().update({ ...fields, owner_id: ownerId })
-        .eq('id', id).eq('owner_id', ownerId).select('id');
+      // title·content만 바꾸고, id·owner_id 조건으로 한 건만 고칩니다. 응답의 바뀐 행은 읽지 않습니다(쓴 뒤 다시 읽어 확인합니다).
+      const { error } = await notes().update({ title: fields.title, content: fields.content })
+        .eq('id', id).eq('owner_id', ownerId);
       if (error) throw error;
-      return data?.length ?? 0;
     },
     async writeAudit(entry) {
-      const { error } = await client().from('notes_restore_audit').insert(entry);
+      const { error } = await db.from('notes_restore_audit').insert(entry);
       if (error) throw error;
     },
   };
