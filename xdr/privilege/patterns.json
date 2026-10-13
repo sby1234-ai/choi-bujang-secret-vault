@@ -1,0 +1,33 @@
+{
+  "schema": "aleph.xdr.patterns.v1",
+  "moduleKey": "privilege",
+  "technique": {
+    "id": "T1068",
+    "name": "Exploitation for Privilege Escalation",
+    "source": "https://attack.mitre.org/techniques/T1068/",
+    "note": "T1068 은 공격자가 약점을 악용해 더 높은 권한을 얻는 방식이고, T1078(정상 계정 도용)은 이미 있는 계정을 빼앗아 그 권한으로 움직이는 방식입니다. 두 방식 모두 결과는 평범한 계정이 갑자기 관리자 권한을 얻고 쓰는 모습으로 보입니다."
+  },
+  "patterns": [
+    {
+      "id": "admin-group-added",
+      "name": "평범한 계정의 관리자 그룹 추가",
+      "condition": "평소 관리자가 아닌 계정이 관리자 그룹에 추가되거나 같은 주소에서 여러 계정이 한꺼번에 추가된다. 추가 직후 명령 실행이 이어지거나 빠졌다가 곧바로 다시 들어오면 더 뚜렷하다. 과제 그룹처럼 관리자 그룹이 아닌 그룹 변경, 그룹 목록 읽기, 수업 그룹 설명 변경은 판단 근거로 쓰지 않는다.",
+      "evidence": "MITRE T1078: 공격자는 정상 계정을 빼앗아 그 계정의 권한으로 활동하고, 계정을 관리자 그룹에 넣어 더 높은 권한을 확보한다.",
+      "source": "https://attack.mitre.org/techniques/T1078/"
+    },
+    {
+      "id": "unfamiliar-admin-command",
+      "name": "처음 보는 관리자 명령 실행",
+      "condition": "방금 관리자가 된 계정이나 처음 보는 주소, 다른 계정의 권한으로 관리자 명령이 실행되고 세션 권한이 관리자로 바뀐다. 평소 주소에서 한 번 실행됐거나 실패 1건으로 끝났거나 권한 상승 창이 떴다가 취소되고 이어서 명령이 없는 경우는 판단 근거로 쓰지 않는다.",
+      "evidence": "MITRE T1068: 공격자는 약점을 악용해 권한을 높인 뒤 높아진 권한이 필요한 관리자 명령을 실행한다.",
+      "source": "https://attack.mitre.org/techniques/T1068/"
+    },
+    {
+      "id": "off-hours-privilege-use",
+      "name": "업무 시간 밖 권한 사용",
+      "condition": "수업 시간 밖이나 업무처럼 보이지 않는 시각에 관리자 그룹 추가나 관리자 명령이 일어난다. 수업용 관리 계정이 평소 주소에서 로그인하거나 서비스 계정이 평소 작업을 확인하는 경우는 판단 근거로 쓰지 않는다.",
+      "evidence": "MITRE T1078: 공격자는 정상 계정을 평소와 다른 시각에 사용하는 경우가 많아, 시각이 맞지 않는 권한 사용은 도용된 계정의 대표적인 흔적이다.",
+      "source": "https://attack.mitre.org/techniques/T1078/"
+    }
+  ]
+}

@@ -1,0 +1,86 @@
+{
+  "schema": "aleph.xdr.block-rules.v1",
+  "rules": [
+    {
+      "ruleId": "xdr.privilege_revoke_session",
+      "account": "user01",
+      "srcIp": "203.0.113.11",
+      "evidenceAlertIds": [
+        "pv-01",
+        "pv-02"
+      ],
+      "createdAt": "2026-09-27T00:15:06.000Z",
+      "expiresAt": "2026-09-27T01:15:40.000Z"
+    },
+    {
+      "ruleId": "xdr.privilege_revoke_session",
+      "account": "user02",
+      "srcIp": "198.51.100.11",
+      "evidenceAlertIds": [
+        "pv-03"
+      ],
+      "createdAt": "2026-09-27T01:03:12.000Z",
+      "expiresAt": "2026-09-27T02:03:12.000Z"
+    },
+    {
+      "ruleId": "xdr.privilege_revoke_session",
+      "account": "user03",
+      "srcIp": "192.0.2.11",
+      "evidenceAlertIds": [
+        "pv-04"
+      ],
+      "createdAt": "2026-09-27T01:19:08.000Z",
+      "expiresAt": "2026-09-27T02:19:08.000Z"
+    },
+    {
+      "ruleId": "xdr.privilege_revoke_session",
+      "account": "user04",
+      "srcIp": "203.0.113.17",
+      "evidenceAlertIds": [
+        "pv-05"
+      ],
+      "createdAt": "2026-09-27T02:06:21.000Z",
+      "expiresAt": "2026-09-27T03:06:21.000Z"
+    },
+    {
+      "ruleId": "xdr.privilege_revoke_session",
+      "account": "user05",
+      "srcIp": "198.51.100.17",
+      "evidenceAlertIds": [
+        "pv-06"
+      ],
+      "createdAt": "2026-09-27T04:08:02.000Z",
+      "expiresAt": "2026-09-27T05:08:02.000Z"
+    },
+    {
+      "ruleId": "xdr.privilege_revoke_session",
+      "account": "user06",
+      "srcIp": "192.0.2.17",
+      "evidenceAlertIds": [
+        "pv-07"
+      ],
+      "createdAt": "2026-09-27T05:16:29.000Z",
+      "expiresAt": "2026-09-27T06:16:29.000Z"
+    },
+    {
+      "ruleId": "xdr.privilege_revoke_session",
+      "account": "user07",
+      "srcIp": "203.0.113.27",
+      "evidenceAlertIds": [
+        "pv-08"
+      ],
+      "createdAt": "2026-09-27T06:02:18.000Z",
+      "expiresAt": "2026-09-27T07:02:18.000Z"
+    },
+    {
+      "ruleId": "xdr.privilege_revoke_session",
+      "account": "user08",
+      "srcIp": "198.51.100.27",
+      "evidenceAlertIds": [
+        "pv-09"
+      ],
+      "createdAt": "2026-09-27T06:33:07.000Z",
+      "expiresAt": "2026-09-27T07:33:07.000Z"
+    }
+  ]
+}

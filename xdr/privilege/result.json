@@ -1,0 +1,167 @@
+{
+  "schema": "aleph.xdr.result.v1",
+  "moduleKey": "privilege",
+  "decisions": [
+    {
+      "alertId": "pv-01",
+      "action": "block",
+      "confidence": 0.94,
+      "reason": "평범한 계정의 관리자 그룹 추가"
+    },
+    {
+      "alertId": "pv-02",
+      "action": "block",
+      "confidence": 0.92,
+      "reason": "처음 보는 관리자 명령 실행"
+    },
+    {
+      "alertId": "pv-03",
+      "action": "block",
+      "confidence": 0.96,
+      "reason": "처음 보는 관리자 명령 실행 · 업무 시간 밖 권한 사용"
+    },
+    {
+      "alertId": "pv-04",
+      "action": "block",
+      "confidence": 0.98,
+      "reason": "평범한 계정의 관리자 그룹 추가 · 처음 보는 관리자 명령 실행"
+    },
+    {
+      "alertId": "pv-05",
+      "action": "block",
+      "confidence": 0.96,
+      "reason": "평범한 계정의 관리자 그룹 추가"
+    },
+    {
+      "alertId": "pv-06",
+      "action": "block",
+      "confidence": 0.92,
+      "reason": "처음 보는 관리자 명령 실행"
+    },
+    {
+      "alertId": "pv-07",
+      "action": "block",
+      "confidence": 0.98,
+      "reason": "평범한 계정의 관리자 그룹 추가 · 처음 보는 관리자 명령 실행 · 업무 시간 밖 권한 사용"
+    },
+    {
+      "alertId": "pv-08",
+      "action": "block",
+      "confidence": 0.92,
+      "reason": "처음 보는 관리자 명령 실행"
+    },
+    {
+      "alertId": "pv-09",
+      "action": "block",
+      "confidence": 0.94,
+      "reason": "평범한 계정의 관리자 그룹 추가"
+    },
+    {
+      "alertId": "pv-10",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "처음 보는 관리자 명령 실행 패턴과 일부만 맞습니다(뚜렷한 조건은 아님)"
+    },
+    {
+      "alertId": "pv-11",
+      "action": "alert",
+      "confidence": 0.58,
+      "reason": "평범한 계정의 관리자 그룹 추가 패턴과 일부만 맞습니다(뚜렷한 조건은 아님)"
+    },
+    {
+      "alertId": "pv-12",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "처음 보는 관리자 명령 실행 패턴과 일부만 맞습니다(뚜렷한 조건은 아님)"
+    },
+    {
+      "alertId": "pv-13",
+      "action": "alert",
+      "confidence": 0.5,
+      "reason": "평범한 계정의 관리자 그룹 추가 패턴과 일부만 맞습니다(뚜렷한 조건은 아님)"
+    },
+    {
+      "alertId": "pv-14",
+      "action": "alert",
+      "confidence": 0.58,
+      "reason": "처음 보는 관리자 명령 실행 패턴과 일부만 맞습니다(뚜렷한 조건은 아님)"
+    },
+    {
+      "alertId": "pv-15",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "평범한 계정의 관리자 그룹 추가 패턴과 일부만 맞습니다(뚜렷한 조건은 아님)"
+    },
+    {
+      "alertId": "pv-16",
+      "action": "alert",
+      "confidence": 0.58,
+      "reason": "처음 보는 관리자 명령 실행 패턴과 일부만 맞습니다(뚜렷한 조건은 아님)"
+    },
+    {
+      "alertId": "pv-17",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "평범한 계정의 관리자 그룹 추가 패턴과 일부만 맞습니다(뚜렷한 조건은 아님)"
+    },
+    {
+      "alertId": "pv-18",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "권한 상승이나 계정 도용 형태와 맞는 패턴이 없는 정상 이벤트입니다"
+    },
+    {
+      "alertId": "pv-19",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "권한 상승이나 계정 도용 형태와 맞는 패턴이 없는 정상 이벤트입니다"
+    },
+    {
+      "alertId": "pv-20",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "권한 상승이나 계정 도용 형태와 맞는 패턴이 없는 정상 이벤트입니다"
+    },
+    {
+      "alertId": "pv-21",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "권한 상승이나 계정 도용 형태와 맞는 패턴이 없는 정상 이벤트입니다"
+    },
+    {
+      "alertId": "pv-22",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "권한 상승이나 계정 도용 형태와 맞는 패턴이 없는 정상 이벤트입니다"
+    },
+    {
+      "alertId": "pv-23",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "권한 상승이나 계정 도용 형태와 맞는 패턴이 없는 정상 이벤트입니다"
+    },
+    {
+      "alertId": "pv-24",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "권한 상승이나 계정 도용 형태와 맞는 패턴이 없는 정상 이벤트입니다"
+    },
+    {
+      "alertId": "pv-25",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "권한 상승이나 계정 도용 형태와 맞는 패턴이 없는 정상 이벤트입니다"
+    },
+    {
+      "alertId": "pv-26",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "권한 상승이나 계정 도용 형태와 맞는 패턴이 없는 정상 이벤트입니다"
+    }
+  ],
+  "counts": {
+    "block": 9,
+    "alert": 8,
+    "record": 9
+  }
+}
