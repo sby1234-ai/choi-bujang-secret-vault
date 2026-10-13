@@ -83,8 +83,8 @@ export async function runAttackChecks(config) {
     results.push({ attackId, expected, observed: code === 401 ? `요청이 거부됨 (HTTP ${code})` : `거부되지 않음 (HTTP ${code})` });
   }
   if (config.step === 3) {
-    results.push({ attackId: 'normal_a_login_crud', expected: 'A 로그인 뒤 메모 추가·수정·삭제가 됨',
-      observed: '미실행 (A 계정 비밀번호가 필요해 자동 점검에서는 보내지 않았고 화면에서 직접 확인함)' });
+    results.push({ attackId: 'normal_a_login_crud', expected: 'A 로그인 뒤 메모 추가·수정·삭제가 됨 (A 계정 비밀번호가 필요해 자동 점검에서는 보내지 않았고 화면에서 직접 확인함)',
+      observed: 'not_run' });
     return results;
   }
 
@@ -114,38 +114,38 @@ export async function runAttackChecks(config) {
     results.push({ attackId: 'wrong_password_login', expected: '없는 계정으로 로그인하면 거부됨(401·429)',
       observed: badLogin === 401 || badLogin === 429 ? `요청이 거부됨 (HTTP ${badLogin})` : `거부되지 않음 (HTTP ${badLogin})` });
   }
-  results.push({ attackId: 'a_b_own_note_crud', expected: 'A·B가 각자 자기 메모를 추가·수정·삭제할 수 있음',
-    observed: '미실행 (계정 비밀번호가 필요해 자동 점검에서는 보내지 않았고 화면에서 직접 확인함)' });
-  results.push({ attackId: 'cross_account_note_access', expected: 'B가 A 메모의 번호로 읽기·수정·삭제하면 거부되고, 본문 owner_id를 바꿔 추가해도 거부됨',
-    observed: '미실행 (B 로그인 토큰이 필요해 자동 점검에서는 보내지 않았고 브라우저 콘솔에서 직접 확인함)' });
+  results.push({ attackId: 'a_b_own_note_crud', expected: 'A·B가 각자 자기 메모를 추가·수정·삭제할 수 있음 (계정 비밀번호가 필요해 자동 점검에서는 보내지 않았고 화면에서 직접 확인함)',
+    observed: 'not_run' });
+  results.push({ attackId: 'cross_account_note_access', expected: 'B가 A 메모의 번호로 읽기·수정·삭제하면 거부되고, 본문 owner_id를 바꿔 추가해도 거부됨 (B 로그인 토큰이 필요해 자동 점검에서는 보내지 않았고 브라우저 콘솔에서 직접 확인함)',
+    observed: 'not_run' });
   if (config.step >= 6) {
     // 6단계: 미등록 기기 공격은 심판이 판정기에 가상 요청으로 보내서 확인합니다. 학생 쪽에서는 보내지 않았습니다.
-    results.push({ attackId: 'unregistered_device_request', expected: '등록되지 않은 기기의 요청이 deny·device_not_registered로 거부됨',
-      observed: '미실행 (미등록 기기 요청은 심판의 가상 요청에서만 오므로 이 점검에서는 보내지 않았고, 로컬 npm run decider:test 연습으로만 확인함)' });
+    results.push({ attackId: 'unregistered_device_request', expected: '등록되지 않은 기기의 요청이 deny·device_not_registered로 거부됨 (미등록 기기 요청은 심판의 가상 요청에서만 오므로 이 점검에서는 보내지 않았고, 로컬 npm run decider:test 연습으로만 확인함)',
+      observed: 'not_run' });
   }
   if (config.step >= 7) {
     // 7단계: 복합 사건의 추가 확인은 판정기 규칙이며, 실제 재로그인 확인은 제공 엔진이 새 로그인 시각을 검증할 때만 시험합니다.
-    results.push({ attackId: 'complex_event_step_up', expected: '평소와 다른 시각·처음 보는 네트워크·많은 자료 읽기가 함께 있는 가상 사건이 추가 확인(step_up)으로 나오고 정상 사건은 허용됨',
-      observed: '미실행 (심판의 가상 접속 사건은 이 점검에서 보내지 않았고, 로컬 npm run decider:test와 npm run fixture:7 연습으로만 확인함)' });
-    results.push({ attackId: 'relogin_before_data_block', expected: '다시 로그인 전에는 자료가 막히고 새 로그인 뒤 요청은 다시 판정되어 허용됨',
-      observed: '미실행 (같은 로그인으로 다시 로그인한 시각을 확인하는 엔진 계약이 저장소에 없어 실제 자료 차단은 시험하지 않음)' });
+    results.push({ attackId: 'complex_event_step_up', expected: '평소와 다른 시각·처음 보는 네트워크·많은 자료 읽기가 함께 있는 가상 사건이 추가 확인(step_up)으로 나오고 정상 사건은 허용됨 (심판의 가상 접속 사건은 이 점검에서 보내지 않았고, 로컬 npm run decider:test와 npm run fixture:7 연습으로만 확인함)',
+      observed: 'not_run' });
+    results.push({ attackId: 'relogin_before_data_block', expected: '다시 로그인 전에는 자료가 막히고 새 로그인 뒤 요청은 다시 판정되어 허용됨 (같은 로그인으로 다시 로그인한 시각을 확인하는 엔진 계약이 저장소에 없어 실제 자료 차단은 시험하지 않음)',
+      observed: 'not_run' });
   }
   if (config.step >= 8) {
     // 8단계: 구역 규칙은 판정기에서, 소유자 대조는 최종 자료 API에서 합니다. 둘 다 이 점검에서는 보내지 않았습니다.
-    results.push({ attackId: 'announcement_write_denied', expected: '일반 학생의 강사 공지 수정이 판정기에서 거부되고 알 수 없는 경로도 거부됨',
-      observed: '미실행 (심판의 가상 요청은 이 점검에서 보내지 않았고, 로컬 npm run decider:test와 node src/resources.mjs 연습으로만 확인함)' });
-    results.push({ attackId: 'direct_api_owner_recheck', expected: '메뉴를 거치지 않은 직접 API 요청에서도 다른 사람 메모가 나오지 않고 본문 role은 거부됨',
-      observed: '미실행 (A·B 로그인 토큰이 필요해 자동 점검에서는 보내지 않았고, 가짜 로그인·가짜 저장소로 만든 로컬 시험으로만 확인함)' });
+    results.push({ attackId: 'announcement_write_denied', expected: '일반 학생의 강사 공지 수정이 판정기에서 거부되고 알 수 없는 경로도 거부됨 (심판의 가상 요청은 이 점검에서 보내지 않았고, 로컬 npm run decider:test와 node src/resources.mjs 연습으로만 확인함)',
+      observed: 'not_run' });
+    results.push({ attackId: 'direct_api_owner_recheck', expected: '메뉴를 거치지 않은 직접 API 요청에서도 다른 사람 메모가 나오지 않고 본문 role은 거부됨 (A·B 로그인 토큰이 필요해 자동 점검에서는 보내지 않았고, 가짜 로그인·가짜 저장소로 만든 로컬 시험으로만 확인함)',
+      observed: 'not_run' });
   }
   if (config.step >= 9) {
     // 9단계: 폭주 조회 탐지와 회수 제안은 src/detect.mjs의 함수이며, 실제 회수와 걸린 시간은 심판이 가상 사건을 보내 확인합니다.
-    results.push({ attackId: 'burst_read_revocation_proposal', expected: '같은 사용자의 조회가 10분 안에 120건을 넘는 가상 사건에서만 propose_revocation(burst_read)이 나오고 정상 사건은 유지됨',
-      observed: '미실행 (심판의 가상 사건과 실제 회수는 이 점검에서 보내지 않았고, 로컬 npm run detect:test 연습으로만 확인함)' });
+    results.push({ attackId: 'burst_read_revocation_proposal', expected: '같은 사용자의 조회가 10분 안에 120건을 넘는 가상 사건에서만 propose_revocation(burst_read)이 나오고 정상 사건은 유지됨 (심판의 가상 사건과 실제 회수는 이 점검에서 보내지 않았고, 로컬 npm run detect:test 연습으로만 확인함)',
+      observed: 'not_run' });
   }
   if (config.step >= 10) {
     // 10단계: 메모 한 건 복원(POST /api/notes/restore)은 시험 계정 B의 로그인 토큰이 필요하고, 사본 테이블은 학생이 SQL Editor에서 만들어야 해서 이 점검에서는 보내지 않았습니다.
-    results.push({ attackId: 'restore_one_note_match', expected: '시험 계정 B가 자기 메모 한 건을 복원하면 ID·소유자·내용 해시가 사본과 같고, B가 A 메모 번호로 요청하면 404임',
-      observed: '자동 점검은 미실행 (B 토큰 필요). 학생이 배포 주소의 B 탭 콘솔에서 직접 확인: 메모를 바꾼 뒤 200 restored, 새로고침 뒤 원래 내용으로 돌아옴. A로 B 메모 번호 요청은 404' });
+    results.push({ attackId: 'restore_one_note_match', expected: '시험 계정 B가 자기 메모 한 건을 복원하면 ID·소유자·내용 해시가 사본과 같고, B가 A 메모 번호로 요청하면 404임 (쓰기 요청과 B 로그인 토큰이 필요해 자동 점검에서는 보내지 않음. 결과는 README의 복구 뒤 재확인 표에 적음)',
+      observed: 'not_run' });
   }
   return results;
 }
