@@ -40,7 +40,7 @@ async function status(app, method, path, { headers = {}, body } = {}) {
 const ABSENT_ID = '00000000-0000-4000-8000-000000000000';
 
 export async function runAttackChecks(config) {
-  if (!Number.isInteger(config.step) || config.step < 1 || config.step > 5) {
+  if (!Number.isInteger(config.step) || config.step < 1 || config.step > 6) {
     throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   }
   const app = appUrl(config);
@@ -118,5 +118,10 @@ export async function runAttackChecks(config) {
     observed: '미실행 (계정 비밀번호가 필요해 자동 점검에서는 보내지 않았고 화면에서 직접 확인함)' });
   results.push({ attackId: 'cross_account_note_access', expected: 'B가 A 메모의 번호로 읽기·수정·삭제하면 거부되고, 본문 owner_id를 바꿔 추가해도 거부됨',
     observed: '미실행 (B 로그인 토큰이 필요해 자동 점검에서는 보내지 않았고 브라우저 콘솔에서 직접 확인함)' });
+  if (config.step >= 6) {
+    // 6단계: 미등록 기기 공격은 심판이 판정기에 가상 요청으로 보내서 확인합니다. 학생 쪽에서는 보내지 않았습니다.
+    results.push({ attackId: 'unregistered_device_request', expected: '등록되지 않은 기기의 요청이 deny·device_not_registered로 거부됨',
+      observed: '미실행 (미등록 기기 요청은 심판의 가상 요청에서만 오므로 이 점검에서는 보내지 않았고, 로컬 npm run decider:test 연습으로만 확인함)' });
+  }
   return results;
 }
