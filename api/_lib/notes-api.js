@@ -9,6 +9,7 @@
 import { createClient } from '@supabase/supabase-js';
 import config from '../../aleph.config.json' with { type: 'json' };
 import { createLoginVerifier } from '../../src/verify-login.mjs';
+import { contentHash } from '../../src/restore-note.mjs';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
 const TITLE_MAX = 100;
@@ -71,6 +72,22 @@ export function notes() {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   return database.from('notes');
+}
+
+// 10단계: 메모를 처음 만들 때(또는 처음 고치거나 지우기 직전에) 그 시점의 내용을 사본(notes_backup)에 한 번만 남깁니다.
+// 이미 사본이 있으면 덮어쓰지 않고(ignoreDuplicates), 사본을 남기지 못해도 메모 요청은 막지 않습니다. 사본에는 내용 해시를 함께 저장합니다.
+export async function snapshotNote(row) {
+  try {
+    if (!row || typeof row.id !== 'string' || typeof row.owner_id !== 'string'
+      || typeof row.title !== 'string' || typeof row.content !== 'string') return;
+    notes();
+    await database.from('notes_backup').upsert({
+      id: row.id, owner_id: row.owner_id, title: row.title, content: row.content,
+      content_sha256: contentHash(row),
+    }, { onConflict: 'id', ignoreDuplicates: true });
+  } catch {
+    console.warn('notes snapshot skipped');
+  }
 }
 
 // 본문에서 id(선택), title, body만 꺼냅니다. owner_id는 저장에 쓰지 않고, 본인 ID와 다르면 거부합니다.
