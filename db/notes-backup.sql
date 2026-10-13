@@ -37,13 +37,14 @@ revoke all on table public.notes_restore_audit from authenticated;
 grant select, insert on table public.notes_restore_audit to service_role;
 
 -- ===== 사본 만들기 (침해 전에, 자료가 정상일 때만 실행하세요) =====
--- 이미 사본이 있는 메모는 건너뜁니다(덮어쓰지 않음). 소유자 없는 메모는 복사하지 않습니다.
--- 침해 뒤에 이 문장을 실행하면 바뀐 자료가 사본이 되므로 실행하지 마세요.
+-- 시험 계정 B의 메모 한 건만 사본으로 만듭니다. 아래 메모 번호는 B의 메모입니다. 다른 메모는 사본이 없어 복원되지 않습니다.
+-- 이미 사본이 있으면 건너뜁니다(덮어쓰지 않음). 침해 뒤에 실행하면 바뀐 자료가 사본이 되므로 실행하지 마세요.
 insert into public.notes_backup (id, owner_id, title, content, content_sha256)
 select n.id, n.owner_id, n.title, n.content,
        encode(sha256(convert_to(n.title || E'\n' || n.content, 'UTF8')), 'hex')
   from public.notes n
- where n.owner_id is not null
+ where n.id = 'ccb4aa46-9fca-45a2-b53c-50ab34fff1db'
+   and n.owner_id is not null
 on conflict (id) do nothing;
 
 -- ===== 실행 뒤 확인용 (필요하면 하나씩 따로 실행) =====

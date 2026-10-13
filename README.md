@@ -462,11 +462,11 @@ npm run detect:test
 
 - 정책 차이 보기 `npm run restore:plan`: 침해 전에 검증한 안전 정책 사본(`backup/policy-snapshot.json`, 규칙 이름 5개·허용 경로 5개)과 지금 시험 정책(`src/decider.mjs`의 `RULE_IDS`, `aleph.config.json`의 `allowedRoutes`)을 비교해, 복원할 버전과 변경 범위를 실행 전에 보여 줍니다. 사본이 없거나 모양·해시 검증에 실패하면 중단하고, 아무것도 쓰지 않습니다.
 - 정책 되돌리기 `npm run restore:apply`: 기본은 미리보기이고, `-- --apply --confirm <해시 앞 12자>`를 모두 줘야 `allowedRoutes`만 사본으로 되돌립니다. 규칙 이름이 사본과 다르면(규칙의 동작은 코드라서) 아무것도 바꾸지 않고 중단하고, 다른 설정 항목과 판정기 코드는 바꾸지 않으며, `backup/restore-audit.log`에 한 줄만 덧붙입니다.
-- 메모 한 건 복원: 서비스 `notes`(Vercel 서버 함수 `api/notes/restore.js` + 학습용 Supabase), 경로 **`POST /api/notes/restore`**. 로그인한 본인의 메모 사본 한 건만 되살립니다. 본문은 `{ "id": "<메모 번호>" }`(`noteId`·`note_id`로 보내도 같게 읽음. 선택으로 기대 내용 해시 `contentSha256`, 미리보기 `dryRun: true`)만 받고, 소유자는 서버가 검증한 토큰에서만 얻으며 본문의 `owner_id`가 본인과 다르면 `403`, `role` 같은 권한 주장은 `403`입니다.
+- 메모 한 건 복원: 서비스 `notes`(Vercel 서버 함수 `api/notes/restore.js` + 학습용 Supabase), 경로 **`POST /api/notes/restore`**. 로그인한 본인의 메모 사본 한 건만 되살립니다. 본문은 정확히 `{ "id": "<메모 번호>" }` 하나만 받고, 다른 키(`owner_id`, `role` 등)가 하나라도 있으면 `400`으로 거부합니다. 소유자는 본문이 아니라 서버가 검증한 토큰에서만 얻습니다.
   - 사본은 비공개 테이블 `notes_backup`(만드는 SQL: `db/notes-backup.sql`)에 있고, 공개용 키로는 읽을 수 없으며 서버 함수만 읽습니다. 저장소에는 메모 문장이 없습니다.
   - 되살리기 전에 사본의 ID·소유자를 요청·로그인과, 사본의 무결성 해시(제목·줄바꿈·내용의 SHA-256, DB의 `content_sha256`)를 사본 내용과 대조합니다. 남의 사본·없는 사본은 `404`, 사본 내용이 해시와 다르거나 현재 메모의 소유자가 다르면 `409`로 쓰지 않고 중단합니다.
-  - 쓴 뒤 다시 읽어 ID·소유자·내용 해시가 사본과 같은지 확인하고 `matches`로 돌려줍니다. 응답에는 `id`, `ownerId`(`owner_id`), 복원된 메모 내용 하나의 SHA-256인 `contentSha256`, 검증한 사본 정보 `backup`(`verified`, `version`=사본을 만든 시각, `sha256`=무결성 해시), `outcome`, `audited`가 들어 있습니다. 다른 메모는 읽지도 쓰지도 않습니다.
-  - `dryRun: true`로 보내면 아무것도 쓰지 않고, 사본을 검증한 뒤 사본 버전(`backup`)과 바뀔 항목(`change`: `restore`·`create`·`none`, `willChange`)만 보여 줍니다. 검증에 실패하거나 남의 사본이면 미리보기도 `409`·`404`로 멈춥니다.
+  - 쓴 뒤 다시 읽어 ID·소유자·내용 해시가 사본과 같은지 확인하고, 하나라도 다르면 `200`이 아니라 `500`으로 멈춥니다. 응답 본문은 `id`, `restored`(`true`), `contentSha256`(제목·줄바꿈·내용의 SHA-256) 세 값뿐입니다. 소유자·사본 정보·메모 내용은 응답에 넣지 않습니다. 다른 메모는 읽지도 쓰지도 않습니다.
+  - 사본은 시험 계정 B의 메모 한 건만 만들어 둡니다(`db/notes-backup.sql`의 사본 만들기 문장에 그 메모 번호만 넣음). 사본이 없는 메모 번호(예: 다른 계정의 메모)는 복원하지 않고 `404`로 멈춥니다.
   - 복원 결과(`restored`·`created`·`unchanged`)는 `notes_restore_audit`에 한 줄만 덧붙이며(메모 문장은 남기지 않음), 서버 함수에는 이 테이블과 사본을 수정·삭제하는 권한을 주지 않습니다.
   - 판정기(`src/decider.mjs`)와 `allowedRoutes`는 바꾸지 않았습니다. `aleph.config.json`의 `restoreRoute`에는 저장점에서 이 경로(`POST /api/notes/restore`)를 적었습니다(경로 표기 형식은 `allowedRoutes`와 같게 한 제 가정이고 문서에 정해진 값은 없습니다). `allowedRoutes`에 넣지 않은 이유는 그 목록이 침해 전 안전 정책 사본(`backup/policy-snapshot.json`)과 같아야 `npm run restore:plan`·`restore:apply`가 이 경로를 "제거할 항목"으로 보지 않기 때문입니다. `src/resources.mjs`는 `restore`를 기능 이름으로 보고 자원으로 인정하지 않으므로, 판정기를 앞에 세우면 이 경로는 거부됩니다.
 - 이전 단계 기능과 다른 메모·감사 기록은 그대로입니다.
@@ -491,7 +491,7 @@ const r = await fetch('/api/notes/restore', { method: 'POST', headers: { 'Conten
 console.log(r.status, await r.json());
 ```
 
-   정상 결과는 `200`과 `matches`의 세 값이 모두 `true`이고, 돌려준 `backup.sha256`이 `db/notes-backup.sql`의 확인용 질의 3번·2번의 사본 무결성 해시와 같아야 합니다. `contentSha256`은 메모 내용만의 SHA-256입니다. B로 A 메모 번호를 넣으면 `404`여야 합니다.
+   정상 결과는 `200`과 `{ id, restored: true, contentSha256 }` 세 값뿐이고, `id`는 보낸 번호와 같아야 합니다. `contentSha256`은 제목·줄바꿈·내용의 SHA-256입니다. B로 A 메모 번호를 넣으면 `404`여야 합니다.
 
 ### 복구 뒤 1~9단계의 정상·금지 요청을 다시 확인하는 순서
 
@@ -502,7 +502,7 @@ console.log(r.status, await r.json());
 | 확인 | 방법 | 돌아왔다면 | 결과 |
 |---|---|---|---|
 | 정책 | `npm run restore:plan` | `변경 범위: 없음`, 복원할 버전과 해시가 `검증됨` | 미실행 |
-| 복원한 메모 한 건 | 배포 뒤 시험 계정 B 탭의 콘솔에서 `POST /api/notes/restore`(위 2번 코드) | `200`, `matches`의 세 값이 모두 `true`, 돌려준 `backup.sha256`이 SQL 확인 질의 3번의 사본 값과 같음 | 2026-10-13 B 탭 콘솔에서 확인: 메모를 바꾸기 전 `200` `unchanged`, 바꾼 뒤 `200` `restored`, 새로고침 뒤 메모가 원래 내용으로 돌아옴(`audited` `true`). `matches`는 콘솔에서 펼쳐 보지 않았고, 코드는 세 값 중 하나라도 다르면 `200`이 아니라 `500`을 돌려줌. SQL 질의 3번 대조는 미실행 |
+| 복원한 메모 한 건 | 배포 뒤 시험 계정 B 탭의 콘솔에서 `POST /api/notes/restore`(위 2번 코드) | `200`, 응답이 `id`·`restored: true`·`contentSha256` 세 값뿐 | 2026-10-13 B 탭 콘솔에서 확인: 메모를 바꾸기 전 `200` `unchanged`, 바꾼 뒤 `200` `restored`, 새로고침 뒤 메모가 원래 내용으로 돌아옴. 당시 응답 모양은 지금과 달랐고(이후 세 값으로 줄임), 줄인 뒤의 배포 확인은 미실행. 코드는 세 값 중 하나라도 다르면 `200`이 아니라 `500`을 돌려줌 |
 | 사본 자체 | SQL Editor에서 `db/notes-backup.sql` 아래의 확인용 질의 2번 | 결과 `0` | 미실행 |
 
 **1~9단계의 정상·금지 요청**
