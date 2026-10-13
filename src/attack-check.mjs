@@ -143,7 +143,7 @@ export async function runAttackChecks(config) {
       observed: '미실행 (심판의 가상 사건과 실제 회수는 이 점검에서 보내지 않았고, 로컬 npm run detect:test 연습으로만 확인함)' });
   }
   if (config.step >= 10) {
-    // 10단계: 메모 한 건 복원(POST /api/notes/restore)은 시험 계정 B의 로그인 토큰이 필요하고, 사본 테이블은 학생이 SQL Editor에서 만들어야 해서 이 점검에서는 보내지 않았습니다.
+    // 10단계: 메모 한 건 복원(POST /api/restore)은 시험 계정 B의 로그인 토큰이 필요하고, 사본 테이블은 학생이 SQL Editor에서 만들어야 해서 이 점검에서는 보내지 않았습니다.
     results.push({ attackId: 'restore_one_note_match', expected: '시험 계정 B가 자기 메모 한 건을 복원하면 ID·소유자·내용 해시가 사본과 같고, B가 A 메모 번호로 요청하면 404임',
       observed: '자동 점검은 미실행 (B 토큰 필요). 학생이 배포 주소의 B 탭 콘솔에서 직접 확인: 메모를 바꾼 뒤 200 restored, 새로고침 뒤 원래 내용으로 돌아옴. A로 B 메모 번호 요청은 404' });
   }

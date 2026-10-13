@@ -85,12 +85,13 @@ test('A 정상 요청은 영향이 없고 사본에 없는 A 메모는 그대로
   assert.equal(repo.state.notes.get(NOTE_A).content, 'A 내용');
 });
 
-test('이미 같은 메모는 쓰지 않고 restored 응답과 unchanged 감사 한 줄만 남긴다', async () => {
+test('이미 같은 메모는 쓰지 않고 restored false 응답과 unchanged 감사 한 줄만 남긴다', async () => {
   const w = world();
   w.notes[0] = { id: NOTE_B, owner_id: B, title: 'B 제목', content: 'B 원래 내용' };
   const repo = fakeRepo(w);
   const result = await run(repo, B, { id: NOTE_B });
   assert.equal(result.status, 200);
+  assert.equal(result.body.restored, false);
   assert.deepEqual(repo.state.writes, []);
   assert.equal(repo.state.audit[0].outcome, 'unchanged');
 });

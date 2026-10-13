@@ -462,13 +462,13 @@ npm run detect:test
 
 - 정책 차이 보기 `npm run restore:plan`: 침해 전에 검증한 안전 정책 사본(`backup/policy-snapshot.json`, 규칙 이름 5개·허용 경로 5개)과 지금 시험 정책(`src/decider.mjs`의 `RULE_IDS`, `aleph.config.json`의 `allowedRoutes`)을 비교해, 복원할 버전과 변경 범위를 실행 전에 보여 줍니다. 사본이 없거나 모양·해시 검증에 실패하면 중단하고, 아무것도 쓰지 않습니다.
 - 정책 되돌리기 `npm run restore:apply`: 기본은 미리보기이고, `-- --apply --confirm <해시 앞 12자>`를 모두 줘야 `allowedRoutes`만 사본으로 되돌립니다. 규칙 이름이 사본과 다르면(규칙의 동작은 코드라서) 아무것도 바꾸지 않고 중단하고, 다른 설정 항목과 판정기 코드는 바꾸지 않으며, `backup/restore-audit.log`에 한 줄만 덧붙입니다.
-- 메모 한 건 복원: 서비스 `notes`(Vercel 서버 함수 `api/notes/restore.js` + 학습용 Supabase), 경로 **`POST /api/notes/restore`**. 로그인한 본인의 메모 사본 한 건만 되살립니다. 본문은 정확히 `{ "id": "<메모 번호>" }` 하나만 받고, 다른 키(`owner_id`, `role` 등)가 하나라도 있으면 `400`으로 거부합니다. 소유자는 본문이 아니라 서버가 검증한 토큰에서만 얻습니다.
+- 메모 한 건 복원: 서비스 `notes`(Vercel 서버 함수 `api/restore.js` + 학습용 Supabase), 경로 **`POST /api/restore`**. 로그인한 본인의 메모 사본 한 건만 되살립니다. 본문은 정확히 `{ "id": "<메모 번호>" }` 하나만 받고, 다른 키(`owner_id`, `role` 등)가 하나라도 있으면 `400`으로 거부합니다. 소유자는 본문이 아니라 서버가 검증한 토큰에서만 얻습니다.
   - 사본은 비공개 테이블 `notes_backup`(만드는 SQL: `db/notes-backup.sql`)에 있고, 공개용 키로는 읽을 수 없으며 서버 함수만 읽습니다. 저장소에는 메모 문장이 없습니다.
   - 되살리기 전에 사본의 ID·소유자를 요청·로그인과, 사본의 무결성 해시(제목·줄바꿈·내용의 SHA-256, DB의 `content_sha256`)를 사본 내용과 대조합니다. 남의 사본·없는 사본은 `404`, 사본 내용이 해시와 다르거나 현재 메모의 소유자가 다르면 `409`로 쓰지 않고 중단합니다.
-  - 쓴 뒤 다시 읽어 ID·소유자·내용 해시가 사본과 같은지 확인하고, 하나라도 다르면 `200`이 아니라 `500`으로 멈춥니다. 응답 본문은 `id`, `restored`(`true`), `contentSha256`(제목·줄바꿈·내용의 SHA-256) 세 값뿐입니다. 소유자·사본 정보·메모 내용은 응답에 넣지 않습니다. 다른 메모는 읽지도 쓰지도 않습니다.
+  - 쓴 뒤 다시 읽어 ID·소유자·내용 해시가 사본과 같은지 확인하고, 하나라도 다르면 `200`이 아니라 `500`으로 멈춥니다. 응답 본문은 `id`, `restored`(실제로 메모를 썼으면 `true`, 이미 사본과 같아서 쓰지 않았으면 `false`), `contentSha256`(제목·줄바꿈·내용의 SHA-256) 세 값뿐입니다. 소유자·사본 정보·메모 내용은 응답에 넣지 않습니다. 다른 메모는 읽지도 쓰지도 않습니다.
   - 사본은 시험 계정 B의 메모 한 건만 만들어 둡니다(`db/notes-backup.sql`의 사본 만들기 문장에 그 메모 번호만 넣음). 사본이 없는 메모 번호(예: 다른 계정의 메모)는 복원하지 않고 `404`로 멈춥니다.
   - 복원 결과(`restored`·`created`·`unchanged`)는 `notes_restore_audit`에 한 줄만 덧붙이며(메모 문장은 남기지 않음), 서버 함수에는 이 테이블과 사본을 수정·삭제하는 권한을 주지 않습니다.
-  - 판정기(`src/decider.mjs`)와 `allowedRoutes`는 바꾸지 않았습니다. `aleph.config.json`의 `restoreRoute`에는 저장점에서 이 경로(`POST /api/notes/restore`)를 적었습니다(경로 표기 형식은 `allowedRoutes`와 같게 한 제 가정이고 문서에 정해진 값은 없습니다). `allowedRoutes`에 넣지 않은 이유는 그 목록이 침해 전 안전 정책 사본(`backup/policy-snapshot.json`)과 같아야 `npm run restore:plan`·`restore:apply`가 이 경로를 "제거할 항목"으로 보지 않기 때문입니다. `src/resources.mjs`는 `restore`를 기능 이름으로 보고 자원으로 인정하지 않으므로, 판정기를 앞에 세우면 이 경로는 거부됩니다.
+  - 판정기(`src/decider.mjs`)와 `allowedRoutes`는 바꾸지 않았습니다. `aleph.config.json`의 `restoreRoute`에는 저장점에서 이 경로(`POST /api/restore`)를 적었습니다(경로 표기 형식은 `allowedRoutes`와 같게 한 제 가정이고 문서에 정해진 값은 없습니다). `allowedRoutes`에 넣지 않은 이유는 그 목록이 침해 전 안전 정책 사본(`backup/policy-snapshot.json`)과 같아야 `npm run restore:plan`·`restore:apply`가 이 경로를 "제거할 항목"으로 보지 않기 때문입니다. `src/resources.mjs`는 `restore`를 기능 이름으로 보고 자원으로 인정하지 않으므로, 판정기를 앞에 세우면 이 경로는 거부됩니다.
 - 이전 단계 기능과 다른 메모·감사 기록은 그대로입니다.
 
 ### 다시 실행하는 방법
@@ -487,11 +487,11 @@ npm run restore:plan
 
 ```
 const t = JSON.parse(localStorage.getItem('byteback-session')).access_token;
-const r = await fetch('/api/notes/restore', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body: JSON.stringify({ id: '<B의 메모 번호>' }) });
+const r = await fetch('/api/restore', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body: JSON.stringify({ id: '<B의 메모 번호>' }) });
 console.log(r.status, await r.json());
 ```
 
-   정상 결과는 `200`과 `{ id, restored: true, contentSha256 }` 세 값뿐이고, `id`는 보낸 번호와 같아야 합니다. `contentSha256`은 제목·줄바꿈·내용의 SHA-256입니다. B로 A 메모 번호를 넣으면 `404`여야 합니다.
+   정상 결과는 `200`과 `{ id, restored, contentSha256 }` 세 값뿐이고(메모를 바꾼 뒤 요청하면 `restored: true`, 바꾸지 않았으면 `false`), `id`는 보낸 번호와 같아야 합니다. `contentSha256`은 제목·줄바꿈·내용의 SHA-256입니다. B로 A 메모 번호를 넣으면 `404`여야 합니다.
 
 ### 복구 뒤 1~9단계의 정상·금지 요청을 다시 확인하는 순서
 
@@ -502,7 +502,7 @@ console.log(r.status, await r.json());
 | 확인 | 방법 | 돌아왔다면 | 결과 |
 |---|---|---|---|
 | 정책 | `npm run restore:plan` | `변경 범위: 없음`, 복원할 버전과 해시가 `검증됨` | 2026-10-13 PC에서 실행: `변경 범위: 없음`, 복원할 버전 `pre-breach-9`, 해시 `d33910a293da` `검증됨` |
-| 복원한 메모 한 건 | 배포 뒤 시험 계정 B 탭의 콘솔에서 `POST /api/notes/restore`(위 2번 코드) | `200`, 응답이 `id`·`restored: true`·`contentSha256` 세 값뿐 | 2026-10-13 배포(커밋 `114de2c`) B 탭 콘솔: `200`, 응답은 `id`·`restored: true`·`contentSha256` 세 값뿐 |
+| 복원한 메모 한 건 | 배포 뒤 시험 계정 B 탭의 콘솔에서 `POST /api/restore`(위 2번 코드) | `200`, 응답이 `id`·`restored: true`·`contentSha256` 세 값뿐 | 2026-10-13 배포(커밋 `114de2c`)에서 당시 경로 `/api/notes/restore`로 B 탭 콘솔 확인: `200`, 응답은 `id`·`restored: true`·`contentSha256` 세 값뿐. 경로를 `/api/restore`로 옮긴 뒤의 배포 확인은 미실행 |
 | 사본 자체 | SQL Editor에서 `db/notes-backup.sql` 아래의 확인용 질의 2번 | 결과 `0` | 2026-10-13 SQL Editor에서 같은 조건(제목·줄바꿈·내용의 해시가 다른 줄 수)을 직접 써서 실행: `0`. 사본은 B의 메모 `1`건 |
 
 **1~9단계의 정상·금지 요청**
@@ -511,14 +511,14 @@ console.log(r.status, await r.json());
 |---|---|---|---|---|
 | 1~2 | 배포 주소 첫 화면이 열림 | 공개 `/data.json`에 가상 메모가 보이지 않음(0건) | 브라우저에서 `/data.json`을 직접 열어 확인 | 2026-10-13 콘솔에서 `/data.json` 요청: `200`, 내용 `{"notes": []}`(가상 메모 0건). 첫 화면은 시험한 탭에서 열려 있음 |
 | 2 | 학습 DB `notes` 테이블에 메모가 있음 | 주인 없는 메모가 없음 | SQL Editor에서 `db/notes.sql` 아래 확인용 질의 5번(`owner_id is null` 개수가 `0`) | 2026-10-13 SQL: `owner_id is null` 메모 `0`건. 학습 DB에 메모가 있음은 A 목록 조회 `200`·4건으로 확인 |
-| 3 | 시험 계정 A로 로그인하면 메모를 추가·수정·삭제할 수 있음 | 로그인 없는 `GET/POST/PUT/DELETE /api/notes…`와 가짜 토큰이 `401` | A 정상 사용은 화면에서 직접, 나머지는 아래 `npm run bundle` 직접 점검 | 2026-10-13 콘솔(로그인 없이): `GET`·`POST`·`PUT`·`DELETE /api/notes…`, `POST /api/notes/restore`, 가짜 토큰 `GET` 모두 `401`. A 화면에서 메모 추가·수정·삭제는 미실행 |
+| 3 | 시험 계정 A로 로그인하면 메모를 추가·수정·삭제할 수 있음 | 로그인 없는 `GET/POST/PUT/DELETE /api/notes…`와 가짜 토큰이 `401` | A 정상 사용은 화면에서 직접, 나머지는 아래 `npm run bundle` 직접 점검 | 2026-10-13 콘솔(로그인 없이): `GET`·`POST`·`PUT`·`DELETE /api/notes…`, `POST /api/notes/restore`(당시 경로), 가짜 토큰 `GET` 모두 `401`. A 화면에서 메모 추가·수정·삭제는 미실행 |
 | 4 | A와 B가 각자 자기 메모만 보고 추가·수정·삭제함 | B 탭 콘솔에서 A 메모 번호로 읽기·수정·삭제가 `404`, 본문 `owner_id`를 A로 바꿔 추가가 `403` | 화면과 B 탭 개발자 도구 콘솔에서 직접(토큰은 출력하지 않음) | 2026-10-13 B 탭 콘솔: A 메모 번호로 읽기·수정·삭제 모두 `404`, 본문 `owner_id`를 바꿔 추가 `403`. A·B 각자 화면에서 추가·수정·삭제는 미실행 |
 | 5 | A·B 로그인과 메모 사용이 새로고침 뒤에도 됨 | 첫 화면 소스에 `sb_`·`supabase`가 없음, 공개용 키로 DB 직접 조회·삭제가 `401`/`403`, 권한 SQL에서 `anon`·`authenticated`가 모두 `false` | 첫 화면 `Ctrl+U` 검색, `db/notes.sql` 아래 확인용 질의 1번, `npm run bundle` 직접 점검 | 2026-10-13 콘솔로 첫 화면 HTML에서 `sb_`·`supabase` 글자 검사: 둘 다 `false`(`Ctrl+U` 직접 검색은 미실행). SQL: `anon`·`authenticated`의 `notes` 권한 4개가 모두 `false`. 공개용 키로 직접 조회·삭제와 새로고침 뒤 로그인 확인은 미실행 |
 | 6 | 등록 기기의 정상 요청이 `allow` | 미등록 기기의 요청이 `deny`(`device_not_registered`) | `npm run decider:test` (`통과` 4줄) | 2026-10-13 PC에서 `npm run decider:test`: `통과` 4줄 |
 | 7 | 정상 사건은 `allow` | 복합 이상 사건은 `step_up` | `npm run fixture:7` | 2026-10-13 PC에서 `npm run fixture:7`: 정상 사건 `allow`, 복합 이상 사건 `step_up` |
 | 8 | 내 메모 한 건 읽기·수정이 `allow` | 메모 목록·추가·삭제와 강사 공지, 본문 `role`, 남의 메모 직접 요청이 거부 | `node src/resources.mjs`, `npm run decider:test`, B 탭 콘솔의 직접 API 요청(위 4단계와 같은 방식, 본문에 `role`을 넣으면 `403`) | 2026-10-13 PC에서 `node src/resources.mjs`: 모든 요청이 기대한 자원 ID로 나옴. B 탭 콘솔: 본문 `role`을 넣어 추가 `403`, 남의 메모 번호 요청 `404`. 강사 공지·목록·삭제 거부는 `decider:test` 외에 따로 확인하지 않아 미실행 |
 | 9 | 정상 조회와 120건 조회는 `observe` | 10분 안에 121건 이상이면 `propose_revocation`(`burst_read`) | `npm run detect:test` (`통과` 6줄) | 2026-10-13 PC에서 `npm run detect:test`: `통과` 6줄 |
-| 10 | 같은 ID·소유자·내용 해시로 복원된 메모를 B가 읽을 수 있음 | B로 A 메모 번호를 복원 요청하면 `404` | 위 0번의 복원 요청, 같은 콘솔에서 A 번호로 요청 | 2026-10-13 B 탭 콘솔: B로 A 메모 번호 복원 요청 `404`(읽기·수정·삭제도 `404`). 복원 요청에 `owner_id` 같은 다른 키를 넣으면 `400`. B로 자기 메모 복원 `200`. A 계정으로 B 메모 번호 복원 요청도 `404` |
+| 10 | 같은 ID·소유자·내용 해시로 복원된 메모를 B가 읽을 수 있음 | B로 A 메모 번호를 복원 요청하면 `404` | 위 0번의 복원 요청, 같은 콘솔에서 A 번호로 요청 | 2026-10-13 B 탭 콘솔(당시 경로 `/api/notes/restore`): B로 A 메모 번호 복원 요청 `404`(읽기·수정·삭제도 `404`). 복원 요청에 `owner_id` 같은 다른 키를 넣으면 `400`. B로 자기 메모 복원 `200`. A 계정으로 B 메모 번호 복원 요청도 `404` |
 
 마지막으로 변경을 커밋·푸시하고 배포한 뒤 `npm run bundle`을 실행해 직접 점검(3·5단계의 로그인 없는 요청, 가짜 토큰, 공개용 키 직접 접근의 상태 코드)과 `npm run test:restore`(24개)를 함께 봅니다. 위 시험은 심판의 판정이 아니라 제가 직접 보낸 요청의 기록입니다. 하나라도 거부되어야 할 요청이 거부되지 않으면 그 단계의 규칙이 복구로 되돌려졌을 수 있으니, `npm run restore:plan`의 변경 범위부터 다시 봅니다.
 

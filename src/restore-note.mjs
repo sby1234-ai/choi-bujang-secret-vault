@@ -64,6 +64,6 @@ export async function restoreNote({ userId, input, repo, log = () => {} }) {
   } catch {
     log('audit_failed');
   }
-  // 응답에는 메모 내용 없이 id, restored(복원 뒤 메모가 사본과 같아졌다는 뜻), contentSha256만 담습니다.
-  return { status: 200, body: { id: backup.id, restored: true, contentSha256: savedHash } };
+  // 응답에는 메모 내용 없이 id, restored(실제로 메모를 썼으면 true, 이미 사본과 같아서 쓰지 않았으면 false), contentSha256만 담습니다.
+  return { status: 200, body: { id: backup.id, restored: outcome !== 'unchanged', contentSha256: savedHash } };
 }
