@@ -6,11 +6,9 @@
 // 8단계: 자료를 돌려주거나 바꾸기 전에 서버가 검증한 사용자 ID와 저장된 owner_id 를 코드에서 한 번 더 대조합니다.
 // 저장된 강사 권한은 없고(DB·토큰 어디에도 없음), 화면 메뉴·본문·헤더·쿼리의 role 은 읽지도 믿지도 않습니다.
 // 거부 사유는 정해진 짧은 단어만 서버 로그에 남깁니다(사용자 ID·메모 번호·토큰은 로그에 넣지 않습니다).
-import { createHash } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import config from '../../aleph.config.json' with { type: 'json' };
 import { createLoginVerifier } from '../../src/verify-login.mjs';
-import { contentHash } from '../../src/restore-note.mjs';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
 const TITLE_MAX = 100;
@@ -19,15 +17,6 @@ const ROLE_KEYS = Object.freeze(['role', 'roles', 'isinstructor', 'instructor', 
 
 let verifier;
 let database;
-
-// 심판 로그인은 두 신원(a, b)이 같은 sub를 쓰므로, 그대로 소유자로 쓰면 A와 B가 한 사람이 됩니다.
-// 심판 로그인은 sub·실행 번호·신원으로 신원마다 다른 소유자 ID(UUID 모양)를 만들어 쓰고, 학생 로그인은 검증된 sub를 그대로 씁니다.
-export function ownerIdFor(login) {
-  if (login?.kind !== 'judge') return login.userId;
-  const h = createHash('sha256').update(`judge-owner\0${login.userId}\0${login.runId}\0${login.identity}`, 'utf8').digest('hex');
-  const variant = ((parseInt(h.slice(16, 18), 16) & 0x3f) | 0x80).toString(16).padStart(2, '0');
-  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-${variant}${h.slice(18, 20)}-${h.slice(20, 32)}`;
-}
 
 export const isUuid = (value) => typeof value === 'string' && UUID.test(value);
 
@@ -74,7 +63,7 @@ export async function requireLogin(request, response) {
     reply(response, 401, { error: 'LOGIN_REQUIRED' });
     return null;
   }
-  return { userId: ownerIdFor(login) };
+  return { userId: login.userId };
 }
 
 export function notes() {
@@ -82,22 +71,6 @@ export function notes() {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   return database.from('notes');
-}
-
-// 10단계: 메모를 처음 만들 때(또는 사본이 없는 메모를 처음 고치거나 지우기 직전에) 그 시점의 내용을 사본(notes_backup)에 한 번만 남깁니다.
-// 이미 사본이 있으면 덮어쓰지 않고(ignoreDuplicates), 사본을 남기지 못해도 메모 요청은 막지 않습니다. 사본에는 내용 해시를 함께 저장합니다.
-export async function snapshotNote(row) {
-  try {
-    if (!row || typeof row.id !== 'string' || typeof row.owner_id !== 'string'
-      || typeof row.title !== 'string' || typeof row.content !== 'string') return;
-    notes();
-    await database.from('notes_backup').upsert({
-      id: row.id, owner_id: row.owner_id, title: row.title, content: row.content,
-      content_sha256: contentHash(row),
-    }, { onConflict: 'id', ignoreDuplicates: true });
-  } catch {
-    console.warn('notes snapshot skipped');
-  }
 }
 
 // 본문에서 id(선택), title, body만 꺼냅니다. owner_id는 저장에 쓰지 않고, 본인 ID와 다르면 거부합니다.

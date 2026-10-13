@@ -57,15 +57,22 @@ export async function restoreNote({ userId, input, repo, log = () => {} }) {
 async function restoreOne({ userId, id, repo, log }) {
   const fail = (status, error, extra = {}) => { log(error); return { status, body: { error }, result: error, ...extra }; };
 
-  // 1) 사본에서 이 ID·소유자의 한 건만 찾아 내용 해시를 대조합니다. 남의 사본은 없는 사본과 똑같이 404입니다.
-  const backups = await repo.readBackups(id, userId);
-  if (backups.length === 0) return fail(404, 'backup_not_found');
-  const [backup] = backups;
-  if (backups.length !== 1 || !validRow(backup) || !same(backup.id, id) || !same(backup.owner_id, userId)) {
-    return fail(409, 'backup_verification_failed');
-  }
-  const savedHash = contentHash(backup);
-  if (backup.content_sha256 !== savedHash) return fail(409, 'backup_verification_failed');
+  // 사본 한 건을 읽어 ID·소유자·내용 해시를 검증합니다. 통과하면 그 행과 해시를, 아니면 오류 코드를 돌려줍니다.
+  const readVerifiedBackup = async () => {
+    const rows = await repo.readBackups(id, userId);
+    if (rows.length === 0) return { error: 'backup_not_found' };
+    const [row] = rows;
+    if (rows.length !== 1 || !validRow(row) || !same(row.id, id) || !same(row.owner_id, userId)) return { error: 'backup_verification_failed' };
+    const hash = contentHash(row);
+    if (row.content_sha256 !== hash) return { error: 'backup_verification_failed' };
+    return { row, hash };
+  };
+
+  // 1) 사본을 읽어 검증합니다. 없으면 404, 검증에 실패하면 409로 멈추고 아무것도 쓰지 않습니다.
+  const first = await readVerifiedBackup();
+  if (first.error) return fail(first.error === 'backup_not_found' ? 404 : 409, first.error);
+  const backup = first.row;
+  const savedHash = first.hash;
 
   // 2) 현재 메모를 ID로 찾습니다. 다른 사용자의 같은 ID 메모는 덮어쓰지 않습니다.
   const currentRows = await repo.readNotes(id);
@@ -73,7 +80,12 @@ async function restoreOne({ userId, id, repo, log }) {
   if (currentRows.length > 1 || (current && !same(current.owner_id, userId))) return fail(409, 'note_owner_mismatch');
   const before = current && validRow(current) ? contentHash(current) : null;
 
-  // 3) 그 한 건만 사본 내용으로 씁니다(있으면 수정, 없으면 같은 ID로 추가). 쓰기 응답의 바뀐 행 수에는 기대지 않습니다.
+  // 3) 쓰기 직전에 사본을 다시 읽어 검증합니다. 처음 검증한 사본과 해시가 다르거나 검증에 실패하면 쓰지 않습니다.
+  const second = await readVerifiedBackup();
+  if (second.error || second.hash !== savedHash) return fail(409, 'backup_verification_failed', { before });
+
+  // 4) 그 한 건만 사본 내용으로 씁니다(있으면 수정, 없으면 같은 ID·소유자로 추가). 쓰기 응답의 바뀐 행 수에는 기대지 않습니다.
+  let wrote = false;
   if (before !== savedHash) {
     try {
       if (current) {
@@ -82,16 +94,24 @@ async function restoreOne({ userId, id, repo, log }) {
         const { conflict } = await repo.insertNote({ id, owner_id: userId, title: backup.title, content: backup.content });
         if (conflict) return fail(500, 'restore_failed', { before });
       }
+      wrote = true;
     } catch {
       return fail(500, 'restore_failed', { before });
     }
   }
 
-  // 4) 쓴 뒤 다시 읽어 ID·소유자·내용 해시가 사본과 같은지 확인합니다. 다르면 성공이라고 답하지 않습니다.
+  // 5) 쓴 뒤 메모와 사본을 모두 다시 읽어, 메모의 ID·소유자·내용 해시가 다시 검증한 사본과 같은지 확인합니다.
+  //    다르면 성공이라고 답하지 않고, 이번에 고친 메모는 복원 전 내용으로 되돌립니다(다른 메모는 건드리지 않습니다).
   const afterRows = await repo.readNotes(id, userId);
   const afterRow = afterRows[0];
   const after = afterRows.length === 1 && validRow(afterRow) ? contentHash(afterRow) : null;
-  if (after !== savedHash || !same(afterRow.id, id) || !same(afterRow.owner_id, userId)) {
+  const third = await readVerifiedBackup();
+  const matches = !third.error && third.hash === savedHash && after === third.hash
+    && same(afterRow.id, third.row.id) && same(afterRow.owner_id, third.row.owner_id);
+  if (!matches) {
+    if (wrote && current && validRow(current)) {
+      try { await repo.updateNote(id, userId, { title: current.title, content: current.content }); } catch { log('rollback_failed'); }
+    }
     return fail(500, 'restore_verification_failed', { before, after });
   }
   const restored = before !== savedHash;
