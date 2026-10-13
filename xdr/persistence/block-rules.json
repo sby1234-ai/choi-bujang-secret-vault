@@ -1,0 +1,69 @@
+{
+  "schema": "aleph.xdr.block-rules.v1",
+  "rules": [
+    {
+      "ruleId": "xdr.persistence_isolate",
+      "srcIp": "203.0.113.12",
+      "evidenceAlertIds": [
+        "ps-01",
+        "ps-02"
+      ],
+      "createdAt": "2026-09-27T00:18:04.000Z",
+      "expiresAt": "2026-09-27T01:19:12.000Z"
+    },
+    {
+      "ruleId": "xdr.persistence_isolate",
+      "srcIp": "198.51.100.12",
+      "evidenceAlertIds": [
+        "ps-03"
+      ],
+      "createdAt": "2026-09-27T01:06:28.000Z",
+      "expiresAt": "2026-09-27T02:06:28.000Z"
+    },
+    {
+      "ruleId": "xdr.persistence_isolate",
+      "srcIp": "192.0.2.12",
+      "evidenceAlertIds": [
+        "ps-04"
+      ],
+      "createdAt": "2026-09-27T01:22:03.000Z",
+      "expiresAt": "2026-09-27T02:22:03.000Z"
+    },
+    {
+      "ruleId": "xdr.persistence_isolate",
+      "srcIp": "203.0.113.19",
+      "evidenceAlertIds": [
+        "ps-05"
+      ],
+      "createdAt": "2026-09-27T02:09:17.000Z",
+      "expiresAt": "2026-09-27T03:09:17.000Z"
+    },
+    {
+      "ruleId": "xdr.persistence_isolate",
+      "srcIp": "198.51.100.19",
+      "evidenceAlertIds": [
+        "ps-06"
+      ],
+      "createdAt": "2026-09-27T04:07:45.000Z",
+      "expiresAt": "2026-09-27T05:07:45.000Z"
+    },
+    {
+      "ruleId": "xdr.persistence_isolate",
+      "srcIp": "192.0.2.19",
+      "evidenceAlertIds": [
+        "ps-07"
+      ],
+      "createdAt": "2026-09-27T05:14:08.000Z",
+      "expiresAt": "2026-09-27T06:14:08.000Z"
+    },
+    {
+      "ruleId": "xdr.persistence_isolate",
+      "srcIp": "203.0.113.33",
+      "evidenceAlertIds": [
+        "ps-08"
+      ],
+      "createdAt": "2026-09-27T06:28:31.000Z",
+      "expiresAt": "2026-09-27T07:28:31.000Z"
+    }
+  ]
+}
