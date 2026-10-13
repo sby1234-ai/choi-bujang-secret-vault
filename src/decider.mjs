@@ -132,7 +132,7 @@ function resolveResource(request) {
 // false 이거나 값이 없거나 true 가 아닌 다른 값이면 거부합니다. 이 규칙을 먼저 확인합니다.
 // 구역 규칙(그다음):
 //   zone_known_resource      : 요청자(subjectId·deviceId) 모양이 맞고 정확한 경로가 표(src/resources.mjs)의 자원이어야 합니다. 모르면 거부합니다.
-//   zone_announcement_write  : 강사 공지는 읽기만 열려 있습니다. 공지를 만들거나 고치거나 지우는 요청은 거부합니다.
+//   zone_announcement_write  : 강사 공지 구역은 읽기·쓰기 모두 거부합니다(내 메모 구역과 섞이지 않게 닫아 둠).
 //                              현재 계약에는 강사 역할(request.role 등)이 없어서 강사임을 확인할 수 없으므로, 누구에게도 열지 않습니다(안전한 쪽).
 //   zone_memo_own            : 내 메모의 읽기·수정은 이 구역에서 허용합니다. 판정 요청에는 메모 소유자 정보가 없어서
 //                              "내 메모인지"는 판정기가 아니라 최종 자료 API(owner_id 검사)가 확인합니다.
@@ -148,7 +148,7 @@ export async function decide(request) {
   if (!validRequester(request)) return respond('deny', 'request_invalid', ['zone_known_resource']);
   const resource = resolveResource(request);
   if (resource === null) return respond('deny', 'resource_unknown', ['zone_known_resource']);
-  if (resource.zone === 'announcement' && resource.action !== 'read') {
+  if (resource.zone === 'announcement') {
     return respond('deny', 'zone_forbidden', ['zone_announcement_write']);
   }
   const zoneRule = resource.zone === 'memo' && (resource.action === 'read' || resource.action === 'update')
