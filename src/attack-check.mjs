@@ -40,7 +40,7 @@ async function status(app, method, path, { headers = {}, body } = {}) {
 const ABSENT_ID = '00000000-0000-4000-8000-000000000000';
 
 export async function runAttackChecks(config) {
-  if (!Number.isInteger(config.step) || config.step < 1 || config.step > 8) {
+  if (!Number.isInteger(config.step) || config.step < 1 || config.step > 9) {
     throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   }
   const app = appUrl(config);
@@ -136,6 +136,11 @@ export async function runAttackChecks(config) {
       observed: '미실행 (심판의 가상 요청은 이 점검에서 보내지 않았고, 로컬 npm run decider:test와 node src/resources.mjs 연습으로만 확인함)' });
     results.push({ attackId: 'direct_api_owner_recheck', expected: '메뉴를 거치지 않은 직접 API 요청에서도 다른 사람 메모가 나오지 않고 본문 role은 거부됨',
       observed: '미실행 (A·B 로그인 토큰이 필요해 자동 점검에서는 보내지 않았고, 가짜 로그인·가짜 저장소로 만든 로컬 시험으로만 확인함)' });
+  }
+  if (config.step >= 9) {
+    // 9단계: 폭주 조회 탐지와 회수 제안은 src/detect.mjs의 함수이며, 실제 회수와 걸린 시간은 심판이 가상 사건을 보내 확인합니다.
+    results.push({ attackId: 'burst_read_revocation_proposal', expected: '같은 사용자의 조회가 10분 안에 120건을 넘는 가상 사건에서만 propose_revocation(burst_read)이 나오고 정상 사건은 유지됨',
+      observed: '미실행 (심판의 가상 사건과 실제 회수는 이 점검에서 보내지 않았고, 로컬 npm run detect:test 연습으로만 확인함)' });
   }
   return results;
 }
