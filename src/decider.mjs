@@ -116,6 +116,7 @@ function isComplexUnusualAccess(context) {
 // 구역 규칙에 쓰는 요청 확인입니다. 엔진이 확인해 넘긴 값(subjectId, deviceId, method, route, path)만 읽고, 쿼리(queryLength·querySha256)는
 // 어떤 기능을 고르는 데 쓰지 않습니다. 자료 하나를 고르는 것은 경로의 :id 자리 하나뿐입니다.
 const DEVICE_ID = /^[0-9a-f]{16}$/u;
+const MEMO_SERVICE = 'notes'; // 연습 요청이 쓰는 서비스 이름(문서에 정해진 값이 없어 제가 정한 시작값)
 const validRequester = (request) => typeof request.subjectId === 'string' && request.subjectId.length > 0 && request.subjectId.length <= 200
   && !/[\u0000-\u001f]/u.test(request.subjectId) && typeof request.deviceId === 'string' && DEVICE_ID.test(request.deviceId);
 
@@ -134,6 +135,7 @@ function resolveResource(request) {
 //   zone_known_resource      : 요청자(subjectId·deviceId) 모양이 맞고 정확한 경로가 표(src/resources.mjs)의 자원이어야 합니다. 모르면 거부합니다.
 //   zone_announcement_write  : 강사 공지 구역은 읽기·쓰기 모두 거부합니다(내 메모 구역과 섞이지 않게 닫아 둠).
 //                              현재 계약에는 강사 역할(request.role 등)이 없어서 강사임을 확인할 수 없으므로, 누구에게도 열지 않습니다(안전한 쪽).
+//                              메모 구역은 엔진이 확인한 service 가 notes 일 때만 인정합니다(아니면 resource_unknown).
 //   zone_memo_own            : 내 메모의 읽기·수정은 이 구역에서 허용합니다. 판정 요청에는 메모 소유자 정보가 없어서
 //                              "내 메모인지"는 판정기가 아니라 최종 자료 API(owner_id 검사)가 확인합니다.
 // 그다음 step_up_required: 복합 사건이면 추가 확인을 요구하고, 이미 다시 확인한 요청이면 허용합니다.
@@ -148,6 +150,8 @@ export async function decide(request) {
   if (!validRequester(request)) return respond('deny', 'request_invalid', ['zone_known_resource']);
   const resource = resolveResource(request);
   if (resource === null) return respond('deny', 'resource_unknown', ['zone_known_resource']);
+  // 엔진이 확인한 service 가 메모 서비스(notes)가 아니면 메모 구역으로 인정하지 않습니다.
+  if (resource.zone === 'memo' && request.service !== MEMO_SERVICE) return respond('deny', 'resource_unknown', ['zone_known_resource']);
   if (resource.zone === 'announcement') {
     return respond('deny', 'zone_forbidden', ['zone_announcement_write']);
   }
