@@ -40,7 +40,7 @@ async function status(app, method, path, { headers = {}, body } = {}) {
 const ABSENT_ID = '00000000-0000-4000-8000-000000000000';
 
 export async function runAttackChecks(config) {
-  if (!Number.isInteger(config.step) || config.step < 1 || config.step > 6) {
+  if (!Number.isInteger(config.step) || config.step < 1 || config.step > 7) {
     throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   }
   const app = appUrl(config);
@@ -122,6 +122,13 @@ export async function runAttackChecks(config) {
     // 6단계: 미등록 기기 공격은 심판이 판정기에 가상 요청으로 보내서 확인합니다. 학생 쪽에서는 보내지 않았습니다.
     results.push({ attackId: 'unregistered_device_request', expected: '등록되지 않은 기기의 요청이 deny·device_not_registered로 거부됨',
       observed: '미실행 (미등록 기기 요청은 심판의 가상 요청에서만 오므로 이 점검에서는 보내지 않았고, 로컬 npm run decider:test 연습으로만 확인함)' });
+  }
+  if (config.step >= 7) {
+    // 7단계: 복합 사건의 추가 확인은 판정기 규칙이며, 실제 재로그인 확인은 제공 엔진이 새 로그인 시각을 검증할 때만 시험합니다.
+    results.push({ attackId: 'complex_event_step_up', expected: '평소와 다른 시각·처음 보는 네트워크·많은 자료 읽기가 함께 있는 가상 사건이 추가 확인(step_up)으로 나오고 정상 사건은 허용됨',
+      observed: '미실행 (심판의 가상 접속 사건은 이 점검에서 보내지 않았고, 로컬 npm run decider:test와 npm run fixture:7 연습으로만 확인함)' });
+    results.push({ attackId: 'relogin_before_data_block', expected: '다시 로그인 전에는 자료가 막히고 새 로그인 뒤 요청은 다시 판정되어 허용됨',
+      observed: '미실행 (같은 로그인으로 다시 로그인한 시각을 확인하는 엔진 계약이 저장소에 없어 실제 자료 차단은 시험하지 않음)' });
   }
   return results;
 }
