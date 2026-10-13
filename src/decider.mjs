@@ -155,8 +155,9 @@ export async function decide(request) {
   if (resource.zone === 'announcement') {
     return respond('deny', 'zone_forbidden', ['zone_announcement_write']);
   }
-  // 시험용(되돌리기 쉬움): 요청에 메모 소유자 정보가 없어 자기 메모와 남의 메모를 구별할 수 없으므로, 메모 한 건(:id) 요청은 거부합니다.
-  if (resource.zone === 'memo' && resource.scope === 'item') return respond('deny', 'zone_forbidden', ['zone_memo_own']);
+  // 쿼리로 자료를 고르지 못하게 합니다: 메모 요청에 쿼리 문자열이 붙어 있으면(queryLength 가 0 이 아니면) 거부합니다.
+  // 앱의 메모 요청은 쿼리를 쓰지 않고, 쿼리 원문은 판정기에 오지 않으므로 어떤 쿼리도 믿지 않습니다.
+  if (resource.zone === 'memo' && request.queryLength !== 0) return respond('deny', 'zone_forbidden', ['zone_known_resource']);
   const zoneRule = resource.zone === 'memo' && (resource.action === 'read' || resource.action === 'update')
     ? 'zone_memo_own' : 'zone_known_resource';
 
