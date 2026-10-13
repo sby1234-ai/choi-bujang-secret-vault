@@ -1,4 +1,5 @@
 // 10단계: 통과한 저장점 커밋에서 정책 사본 목록(policy/verified-policy.json)을 한 번 만듭니다.
+// 10단계 복원 묶음: 사본을 다시 읽어 검증하고(실패하면 중단), 실행 전에 버전·바뀔 항목을 보여 주며, 한 건만 ID·소유자·내용 해시로 대조해 되살리는 경로의 일부입니다.
 // 사용: node scripts/policy-make-manifest.mjs <저장점 커밋> [--label=이름]
 // 목록에는 파일 이름과 지문(sha256)만 적습니다. 파일 내용·비밀값은 적지 않으며, 이미 있는 목록은 덮어쓰지 않습니다.
 import { buildManifest, defaultRoot } from './policy-lib.mjs';
