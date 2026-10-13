@@ -28,7 +28,7 @@ export function readRestoreInput(body) {
 
 const deny = (status, error) => ({ status, body: { error } });
 
-// repo: readBackup(id), readNote(id), insertNote(row) -> { conflict }, updateNote(id, ownerId, fields) -> 바뀐 행 수, writeAudit(entry)
+// repo: readBackup(id), readNote(id), insertNote(row) -> { conflict }, updateNote(id, ownerId, fields), writeAudit(entry)
 export async function restoreNote({ userId, input, repo, log = () => {} }) {
   const backup = await repo.readBackup(input.id);
   if (!backup) { log('backup_not_found'); return deny(404, 'NOT_FOUND'); }
@@ -48,8 +48,8 @@ export async function restoreNote({ userId, input, repo, log = () => {} }) {
   } else if (contentHash(current) === savedHash) {
     outcome = 'unchanged';
   } else {
-    const changed = await repo.updateNote(input.id, userId, { title: backup.title, content: backup.content });
-    if (!changed) { log('update_missed'); return deny(409, 'RESTORE_CONFLICT'); }
+    // 쓰기 요청의 응답(바뀐 행 수)에는 기대지 않습니다. 쓴 뒤 다시 읽어 확인한 결과만으로 판단합니다.
+    await repo.updateNote(input.id, userId, { title: backup.title, content: backup.content });
     outcome = 'restored';
   }
 

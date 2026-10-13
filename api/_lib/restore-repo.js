@@ -34,10 +34,10 @@ export function restoreRepo() {
       return { conflict: false };
     },
     async updateNote(id, ownerId, fields) {
-      const { data, error } = await notes().update({ ...fields, owner_id: ownerId })
-        .eq('id', id).eq('owner_id', ownerId).select('id');
+      // title·content만 바꾸고, id·owner_id 조건으로 한 건만 고칩니다. 응답의 바뀐 행은 읽지 않습니다(쓴 뒤 다시 읽어 확인합니다).
+      const { error } = await notes().update({ title: fields.title, content: fields.content })
+        .eq('id', id).eq('owner_id', ownerId);
       if (error) throw error;
-      return data?.length ?? 0;
     },
     async writeAudit(entry) {
       const { error } = await db.from('notes_restore_audit').insert(entry);
