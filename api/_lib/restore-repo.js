@@ -15,7 +15,7 @@ export function restoreRepo() {
   return {
     async readBackup(id) {
       const { data, error } = await client().from('notes_backup')
-        .select('id, owner_id, title, content, content_sha256').eq('id', id).maybeSingle();
+        .select('id, owner_id, title, content, content_sha256, backed_up_at').eq('id', id).maybeSingle();
       if (error) throw error;
       return data;
     },

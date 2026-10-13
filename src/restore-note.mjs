@@ -8,7 +8,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
 const SHA256 = /^[0-9a-f]{64}$/u;
 const ROLE_KEYS = Object.freeze(['role', 'roles', 'isinstructor', 'instructor', 'permission', 'permissions', 'scope', 'zone']);
 const OWNER_KEYS = Object.freeze(['owner_id', 'ownerid', 'userid']);
-const ALLOWED_KEYS = Object.freeze(['id', 'contentsha256']);
+const ID_KEYS = Object.freeze(['id', 'noteid', 'note_id', 'memoid']);
+const ALLOWED_KEYS = Object.freeze([...ID_KEYS, 'contentsha256', 'dryrun']);
 
 const same = (a, b) => typeof a === 'string' && typeof b === 'string' && a.toLowerCase() === b.toLowerCase();
 
@@ -17,7 +18,12 @@ export function contentHash({ title, content }) {
   return createHash('sha256').update(`${title}\n${content}`, 'utf8').digest('hex');
 }
 
-// 본문에서 복원할 메모 번호(id)와 선택 사항인 기대 해시(contentSha256)만 꺼냅니다.
+// 내용 해시: 메모 내용(content) 하나만 UTF-8로 SHA-256 한 16진수입니다. 응답에 돌려주고 기대 해시와 대조하는 값입니다.
+export function bodySha256(content) {
+  return createHash('sha256').update(content, 'utf8').digest('hex');
+}
+
+// 본문에서 복원할 메모 번호(id)와 선택 사항인 기대 내용 해시(contentSha256), 미리보기(dryRun)만 꺼냅니다.
 export function readRestoreInput(body, userId) {
   let data = body;
   if (typeof data === 'string') {
@@ -31,11 +37,20 @@ export function readRestoreInput(body, userId) {
   }
   const extra = keys.filter(key => !OWNER_KEYS.includes(key.toLowerCase()) && !ALLOWED_KEYS.includes(key.toLowerCase()));
   if (extra.length) return { error: 'INVALID_BODY' };
-  if (typeof data.id !== 'string' || !UUID.test(data.id)) return { error: 'INVALID_ID' };
-  const input = { id: data.id.toLowerCase() };
-  if (data.contentSha256 !== undefined) {
-    if (typeof data.contentSha256 !== 'string' || !SHA256.test(data.contentSha256)) return { error: 'INVALID_HASH' };
-    input.contentSha256 = data.contentSha256;
+  const idKeys = keys.filter(key => ID_KEYS.includes(key.toLowerCase()));
+  if (idKeys.length !== 1) return { error: 'INVALID_ID' };
+  const rawId = data[idKeys[0]];
+  if (typeof rawId !== 'string' || !UUID.test(rawId)) return { error: 'INVALID_ID' };
+  const input = { id: rawId.toLowerCase() };
+  const dryKey = keys.find(key => key.toLowerCase() === 'dryrun');
+  if (dryKey !== undefined) {
+    if (typeof data[dryKey] !== 'boolean') return { error: 'INVALID_BODY' };
+    input.dryRun = data[dryKey];
+  }
+  const hashKey = keys.find(key => key.toLowerCase() === 'contentsha256');
+  if (hashKey !== undefined) {
+    if (typeof data[hashKey] !== 'string' || !SHA256.test(data[hashKey])) return { error: 'INVALID_HASH' };
+    input.contentSha256 = data[hashKey];
   }
   return { input };
 }
@@ -50,17 +65,25 @@ export async function restoreNote({ userId, input, repo, log = () => {} }) {
   if (!same(backup.id, input.id) || !same(backup.owner_id, userId)) { log('owner_mismatch'); return deny(404, 'NOT_FOUND'); }
   const savedHash = contentHash(backup);
   if (backup.content_sha256 !== savedHash) { log('backup_hash_mismatch'); return deny(409, 'BACKUP_INVALID'); }
-  if (input.contentSha256 !== undefined && input.contentSha256 !== savedHash) { log('expected_hash_mismatch'); return deny(409, 'HASH_MISMATCH'); }
+  if (input.contentSha256 !== undefined && input.contentSha256 !== bodySha256(backup.content)) { log('expected_hash_mismatch'); return deny(409, 'HASH_MISMATCH'); }
 
+  // 사본을 다시 읽어 검증한 결과(버전·무결성 해시)입니다. 미리보기와 실제 복원 응답에 모두 담습니다.
+  const backupInfo = { verified: true, version: backup.backed_up_at ?? null, sha256: savedHash };
   const current = await repo.readNote(input.id);
+  if (current && !same(current.owner_id, userId)) { log('current_owner_differs'); return deny(409, 'OWNER_CONFLICT'); }
+  if (input.dryRun === true) {
+    // 미리보기: 아무것도 쓰지 않고, 사본 버전과 바뀔 항목만 보여 줍니다.
+    const change = !current ? 'create' : (contentHash(current) === savedHash ? 'none' : 'restore');
+    return { status: 200, body: {
+      dryRun: true, id: backup.id, ownerId: userId, owner_id: userId, backup: backupInfo, change,
+      willChange: change === 'none' ? [] : ['title', 'content'], contentSha256: bodySha256(backup.content),
+    } };
+  }
   let outcome;
   if (!current) {
     const { conflict } = await repo.insertNote({ id: backup.id, owner_id: userId, title: backup.title, content: backup.content });
     if (conflict) { log('id_exists'); return deny(409, 'ID_EXISTS'); }
     outcome = 'created';
-  } else if (!same(current.owner_id, userId)) {
-    log('current_owner_differs');
-    return deny(409, 'OWNER_CONFLICT');
   } else if (contentHash(current) === savedHash) {
     outcome = 'unchanged';
   } else {
@@ -74,7 +97,7 @@ export async function restoreNote({ userId, input, repo, log = () => {} }) {
   const matches = {
     id: Boolean(after) && same(after.id, backup.id),
     owner: Boolean(after) && same(after.owner_id, backup.owner_id),
-    contentSha256: Boolean(after) && contentHash(after) === savedHash,
+    contentSha256: Boolean(after) && contentHash(after) === savedHash && bodySha256(after.content) === bodySha256(backup.content),
   };
   if (!matches.id || !matches.owner || !matches.contentSha256) { log('verify_failed'); return deny(500, 'RESTORE_VERIFY_FAILED'); }
 
@@ -85,5 +108,8 @@ export async function restoreNote({ userId, input, repo, log = () => {} }) {
     audited = false;
     log('audit_failed');
   }
-  return { status: 200, body: { id: backup.id, outcome, matches, contentSha256: savedHash, audited } };
+  return { status: 200, body: {
+    id: backup.id, ownerId: userId, owner_id: userId, outcome, matches,
+    contentSha256: bodySha256(after.content), backup: backupInfo, audited,
+  } };
 }

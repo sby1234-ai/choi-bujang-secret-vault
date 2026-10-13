@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { contentHash, readRestoreInput, restoreNote } from '../src/restore-note.mjs';
+import { bodySha256, contentHash, readRestoreInput, restoreNote } from '../src/restore-note.mjs';
 
 const B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -8,7 +8,7 @@ const NOTE_B = '11111111-1111-4111-8111-111111111111';
 const NOTE_A = '22222222-2222-4222-8222-222222222222';
 const OTHER = '33333333-3333-4333-8333-333333333333';
 
-const saved = (id, owner, title, content) => ({ id, owner_id: owner, title, content, content_sha256: contentHash({ title, content }) });
+const saved = (id, owner, title, content) => ({ id, owner_id: owner, title, content, content_sha256: contentHash({ title, content }), backed_up_at: '2026-10-13T00:00:00+00:00' });
 
 // 가짜 저장소: 사본 표, 메모 표, 감사 기록을 메모리에 둡니다.
 function fakeRepo({ backups, notes, auditFails = false }) {
@@ -45,7 +45,12 @@ test('B가 자기 메모 한 건을 되살리면 ID·소유자·내용 해시가
   assert.equal(result.status, 200);
   assert.equal(result.body.outcome, 'restored');
   assert.deepEqual(result.body.matches, { id: true, owner: true, contentSha256: true });
-  assert.equal(result.body.contentSha256, contentHash({ title: 'B 제목', content: 'B 원래 내용' }));
+  assert.equal(result.body.contentSha256, bodySha256('B 원래 내용'));
+  assert.equal(result.body.ownerId, B);
+  assert.equal(result.body.owner_id, B);
+  assert.equal(result.body.id, NOTE_B);
+  assert.equal(result.body.backup.verified, true);
+  assert.equal(result.body.backup.sha256, contentHash({ title: 'B 제목', content: 'B 원래 내용' }));
   const row = repo.state.notes.get(NOTE_B);
   assert.equal(row.owner_id, B);
   assert.equal(contentHash(row), repo.state.backups.get(NOTE_B).content_sha256);
@@ -135,4 +140,38 @@ test('입력: id만 받고, 권한·다른 소유자·모르는 항목은 거부
   assert.equal(readRestoreInput({ id: NOTE_B, contentSha256: 'zz' }, B).error, 'INVALID_HASH');
   assert.equal(readRestoreInput([], B).error, 'INVALID_BODY');
   assert.equal(readRestoreInput('not json', B).error, 'INVALID_BODY');
+});
+
+test('기대 내용 해시가 사본 내용의 SHA-256과 같으면 복원된다', async () => {
+  const repo = fakeRepo(world());
+  const result = await run(repo, B, { id: NOTE_B, contentSha256: bodySha256('B 원래 내용') });
+  assert.equal(result.status, 200);
+  assert.equal(result.body.outcome, 'restored');
+});
+
+test('미리보기는 사본 버전과 바뀔 항목만 보여 주고 아무것도 쓰지 않는다', async () => {
+  const repo = fakeRepo(world());
+  const result = await run(repo, B, { id: NOTE_B, dryRun: true });
+  assert.equal(result.status, 200);
+  assert.equal(result.body.dryRun, true);
+  assert.equal(result.body.change, 'restore');
+  assert.deepEqual(result.body.willChange, ['title', 'content']);
+  assert.deepEqual(result.body.backup, { verified: true, version: '2026-10-13T00:00:00+00:00', sha256: contentHash({ title: 'B 제목', content: 'B 원래 내용' }) });
+  assert.deepEqual(repo.state.writes, []);
+  assert.equal(repo.state.audit.length, 0);
+  assert.equal(repo.state.notes.get(NOTE_B).title, '바뀐 제목');
+});
+
+test('미리보기도 검증에 실패하거나 남의 사본이면 멈춘다', async () => {
+  const w = world();
+  w.backups[0] = { ...w.backups[0], title: '몰래 바뀐 사본' };
+  assert.equal((await run(fakeRepo(w), B, { id: NOTE_B, dryRun: true })).status, 409);
+  assert.equal((await run(fakeRepo(world()), B, { id: NOTE_A, dryRun: true })).status, 404);
+});
+
+test('입력: noteId 같은 다른 이름도 id로 읽고, 둘을 함께 보내거나 dryRun이 불리언이 아니면 거부한다', () => {
+  assert.deepEqual(readRestoreInput({ noteId: NOTE_B }, B), { input: { id: NOTE_B } });
+  assert.deepEqual(readRestoreInput({ note_id: NOTE_B, dryRun: true }, B), { input: { id: NOTE_B, dryRun: true } });
+  assert.equal(readRestoreInput({ id: NOTE_B, noteId: NOTE_B }, B).error, 'INVALID_ID');
+  assert.equal(readRestoreInput({ id: NOTE_B, dryRun: 'yes' }, B).error, 'INVALID_BODY');
 });
