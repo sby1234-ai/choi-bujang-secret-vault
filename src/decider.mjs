@@ -160,11 +160,6 @@ export async function decide(request) {
   // 쿼리로 자료를 고르지 못하게 합니다: 메모 요청에 쿼리 문자열이 붙어 있으면(queryLength 가 0 이 아니면) 거부합니다.
   // 앱의 메모 요청은 쿼리를 쓰지 않고, 쿼리 원문은 판정기에 오지 않으므로 어떤 쿼리도 믿지 않습니다.
   if (resource.zone === 'memo' && request.queryLength !== 0) return respond('deny', ZONE_DENY_REASON, ['zone_known_resource']);
-  // 시험용(되돌리기 쉬움): 메모 한 건(:id)은 주소의 번호 안에 요청자(subjectId)가 들어 있을 때만 허용합니다. 번호는 자료 번호일 뿐이므로 아니면 거부합니다.
-  if (resource.zone === 'memo' && resource.scope === 'item') {
-    const idSegment = String(request.path).split('/').pop().toLowerCase();
-    if (!idSegment.includes(request.subjectId.toLowerCase())) return respond('deny', ZONE_DENY_REASON, ['zone_memo_own']);
-  }
   const zoneRule = resource.zone === 'memo' && (resource.action === 'read' || resource.action === 'update')
     ? 'zone_memo_own' : 'zone_known_resource';
 
