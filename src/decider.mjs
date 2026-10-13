@@ -138,7 +138,7 @@ function resolveResource(request) {
 //   zone_announcement_write  : 강사 공지 구역은 읽기·쓰기 모두 거부합니다(내 메모 구역과 섞이지 않게 닫아 둠).
 //                              현재 계약에는 강사 역할(request.role 등)이 없어서 강사임을 확인할 수 없으므로, 누구에게도 열지 않습니다(안전한 쪽).
 //                              메모 구역은 엔진이 확인한 service 가 notes 일 때만 인정합니다(아니면 거부).
-//   zone_memo_own            : 내 메모 한 건의 읽기·수정은 이 구역에서 허용합니다(메모 전체 목록 GET /notes 는 거부). 판정 요청에는 메모 소유자 정보가 없어서
+//   zone_memo_own            : 내 메모 한 건의 읽기·수정만 이 구역에서 허용합니다(메모 전체 목록 GET /notes, 추가, 삭제는 거부). 판정 요청에는 메모 소유자 정보가 없어서
 //                              "내 메모인지"는 판정기가 아니라 최종 자료 API(owner_id 검사)가 확인합니다.
 // 그다음 step_up_required: 복합 사건이면 추가 확인을 요구하고, 이미 다시 확인한 요청이면 허용합니다.
 export async function decide(request) {
@@ -157,9 +157,10 @@ export async function decide(request) {
   if (resource.zone === 'announcement') {
     return respond('deny', ZONE_DENY_REASON, ['zone_announcement_write']);
   }
-  // 메모 전체 목록(GET /notes)은 여러 사람의 자료를 한꺼번에 여는 경로라서 판정기에서 거부합니다.
-  // 판정 요청에는 메모 소유자 정보가 없어서 목록이 "내 것만"인지 판정기가 확인할 수 없습니다. 허용하는 메모 동작은 한 건 읽기·수정(경로의 :id 자리 하나)입니다.
-  if (resource.zone === 'memo' && resource.scope === 'collection' && resource.action === 'read') {
+  // 메모 구역에서 판정기가 허용하는 동작은 한 건 읽기(GET /notes/:id)와 한 건 수정(PUT /notes/:id) 둘뿐입니다(경로의 :id 자리 하나).
+  // 메모 전체 목록(GET /notes)은 여러 사람의 자료를 한꺼번에 여는 경로이고, 판정 요청에는 메모 소유자 정보가 없어서 판정기가 "내 것만"인지 확인할 수 없습니다.
+  // 메모 추가·삭제는 아직 허용하지 않은 동작이라 기본 거부를 유지합니다. 최종 자료 API는 판정기와 별개로 owner_id 를 확인합니다.
+  if (resource.zone === 'memo' && !(resource.scope === 'item' && (resource.action === 'read' || resource.action === 'update'))) {
     return respond('deny', ZONE_DENY_REASON, ['zone_known_resource']);
   }
   // 쿼리로 자료를 고르지 못하게 합니다: 메모 요청에 쿼리 문자열이 붙어 있으면(queryLength 가 0 이 아니면) 거부합니다.
