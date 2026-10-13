@@ -502,7 +502,7 @@ console.log(r.status, await r.json());
 | 확인 | 방법 | 돌아왔다면 | 결과 |
 |---|---|---|---|
 | 정책 | `npm run restore:plan` | `변경 범위: 없음`, 복원할 버전과 해시가 `검증됨` | 2026-10-13 PC에서 실행: `변경 범위: 없음`, 복원할 버전 `pre-breach-9`, 해시 `d33910a293da` `검증됨` |
-| 복원한 메모 한 건 | 배포 뒤 시험 계정 B 탭의 콘솔에서 `POST /api/restore`(위 2번 코드) | `200`, 응답이 `id`·`restored: true`·`contentSha256` 세 값뿐 | 2026-10-13 배포(커밋 `114de2c`)에서 당시 경로 `/api/notes/restore`로 B 탭 콘솔 확인: `200`, 응답은 `id`·`restored: true`·`contentSha256` 세 값뿐. 경로를 `/api/restore`로 옮긴 뒤(커밋 `70a9077`) 같은 B 탭 콘솔에서 메모를 바꾸지 않고 요청: `200`, `restored: false`, 응답은 세 값뿐. 메모를 바꾼 뒤 `restored: true`가 되는 확인은 새 경로에서는 미실행 |
+| 복원한 메모 한 건 | 배포 뒤 시험 계정 B 탭의 콘솔에서 `POST /api/restore`(위 2번 코드) | `200`, 응답이 `id`·`restored: true`·`contentSha256` 세 값뿐 | 2026-10-13 배포(커밋 `114de2c`)에서 당시 경로 `/api/notes/restore`로 B 탭 콘솔 확인: `200`, 응답은 `id`·`restored: true`·`contentSha256` 세 값뿐. 경로를 `/api/restore`로 옮긴 뒤의 배포 확인은 미실행 |
 | 사본 자체 | SQL Editor에서 `db/notes-backup.sql` 아래의 확인용 질의 2번 | 결과 `0` | 2026-10-13 SQL Editor에서 같은 조건(제목·줄바꿈·내용의 해시가 다른 줄 수)을 직접 써서 실행: `0`. 사본은 B의 메모 `1`건 |
 
 **1~9단계의 정상·금지 요청**
