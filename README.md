@@ -255,7 +255,7 @@ npm run decider:test
 - 운영 등록부의 `allowedReasonCodes`가 저장소에 없어서 `approved`와 `device_not_registered`가 허용 목록에 있는지는 이 저장소만으로 확인하지 못했습니다.
 - 규칙은 기기 등록 여부 하나뿐이라 요청 방식(GET 등)이나 재인증(`stepUp`)은 따로 따지지 않습니다. 등록된 기기면 모든 확인된 요청을 허용합니다.
 
-## 7단계: 평소와 다른 접속은 다시 확인합니다 (현재 상태)
+## 7단계: 평소와 다른 접속은 다시 확인합니다 (7단계 기록)
 
 ### 현재 작동하는 기능
 
@@ -277,9 +277,42 @@ npm run fixture:7
 2. `npm run fixture:7`: `정상 사건: allow`, `복합 이상 사건: step_up`이 나옵니다.
 3. 이 두 명령은 가상 요청 연습이며 심판 통과 증거가 아닙니다.
 
-### 아직 남은 약점
+### 7단계 당시 남은 약점 (구역 규칙은 8단계에서 더함)
 
 - 같은 로그인으로 다시 로그인한 시각을 엔진이 확인하는 계약이 저장소에 없어서, 다시 로그인 전 실제 자료 차단과 새 로그인 뒤 요청 허용은 **미실행**입니다. 계약이 준비된 환경에서만 실측합니다.
 - 엔진이 `stepUp.verified`를 추가 확인 뒤에만 true로 주는지, 15분 안의 모든 로그인에 주는지는 문서에 구분이 없습니다. 후자라면 방금 로그인한 도플갱어도 통과할 수 있어 확인이 필요합니다.
 - 시각·네트워크 표기·건수 기준은 시작값이고, 운영 등록부의 `allowedReasonCodes`에 `step_up_required`가 있는지도 이 저장소만으로는 확인하지 못했습니다.
 - 위조 헤더가 붙은 요청은 접속 정보로 읽히지 않을 뿐 거부되지는 않습니다. 기기 규칙이 통과하면 `allow`입니다.
+
+## 8단계: 자료마다 갈 수 있는 구역을 나눕니다 (현재 상태)
+
+### 현재 작동하는 기능
+
+- `src/resources.mjs`: 자원 ID 표입니다. 내 메모는 `vault.memo`(`/notes`, `/notes/:id`, 서버 함수 주소 `/api/notes` 계열), 강사 공지는 `vault.announcement`(`/announcements`, `/announcements/:id`)입니다. `resourceFor(method, route 또는 path)`가 자원 ID와 구역·동작을 돌려주고, 표에 없거나 모양이 이상하면 추측하지 않고 `null`입니다. 쿼리(`?...`)로 기능을 고르지 않고, `:id` 자리에 `export` 같은 기능 이름이 오면 자원으로 보지 않습니다. 이 표에 `:id`와 같은 깊이의 기능 경로는 없습니다.
+- `src/decider.mjs`의 구역 규칙 3개(`RULE_IDS`는 기기·추가 확인 규칙을 합쳐 5개): `zone_known_resource`는 요청자(`subjectId`·`deviceId`) 모양이 맞고 `route`와 `path`가 같은 자원을 가리킬 때만 통과시키며 모르면 `deny`·`resource_unknown`(요청자 모양이 틀리면 `request_invalid`), `zone_memo_own`은 내 메모의 읽기·수정을 허용, `zone_announcement_write`는 강사 공지의 만들기·수정·삭제를 `deny`·`zone_forbidden`으로 거부합니다. 강사 공지는 읽기만 열려 있습니다. 기기 규칙을 먼저, 구역 규칙을 그다음, 복합 사건 추가 확인을 마지막에 확인합니다.
+- 최종 자료 API(`api/notes.js`, `api/notes/[id].js`, `api/_lib/notes-api.js`): 응답·수정·삭제 전에 서버가 검증한 사용자 ID와 저장된 `owner_id`를 코드에서 다시 대조합니다(기존 질의의 `owner_id` 조건은 그대로). 다르면 목록에서는 그 행을 빼고 한 건·수정·삭제는 404입니다. 요청 본문의 `role`·`isInstructor`·`permissions` 같은 권한 주장은 403 `ROLE_NOT_TRUSTED`로 거부하고, 헤더·쿼리의 role은 읽지 않습니다. 거부 사유는 `owner_mismatch`, `owner_mismatch_row`, `not_found_or_not_owner`, `role_in_body`, `owner_in_body` 중 짧은 단어만 서버 로그에 남기고 사용자 ID·메모 번호·토큰은 남기지 않습니다.
+- 저장된 강사 권한은 DB에도 로그인 토큰에도 없어서 API에서 강사로 열리는 길은 없습니다. 강사 공지의 서버 함수·테이블·화면도 아직 없습니다. `/announcements` 경로 이름은 제가 정한 가정입니다. 화면 메뉴는 이번 단계에서 바꾸지 않았습니다.
+- 기존 메모 주소와 자료는 바꾸지 않았고, 이전 단계 기능은 그대로입니다. `allowedRoutes`(`/api/notes` 계열 5개)도 구현과 같습니다.
+
+### 다시 실행하는 방법
+
+```
+node src/resources.mjs
+npm run decider:test
+npm run fixture:7
+```
+
+### 확인 방법
+
+1. `node src/resources.mjs`: 자원 ID 표 두 줄과 22줄의 요청이 모두 `맞음`이고 마지막 줄이 `모든 요청이 기대한 자원 ID로 나왔습니다.`입니다.
+2. `npm run decider:test`: `통과`가 네 줄 나오고, `npm run fixture:7`은 `정상 사건: allow`, `복합 이상 사건: step_up`이 나옵니다. 이 명령들은 가상 요청 연습이며 심판 통과 증거가 아닙니다.
+3. 직접 API(배포 뒤): A와 B로 각각 로그인한 뒤, B로 로그인한 탭의 개발자 도구 콘솔에서 화면 메뉴를 거치지 않고 A 메모의 번호로 읽기·수정·삭제를 요청하면 모두 `404`, 본문에 `role: 'instructor'`를 넣어 수정·추가하면 `403`이 나와야 합니다. 끝난 뒤 A 화면의 메모는 그대로여야 합니다. 토큰 원문은 어디에도 적지 않습니다.
+4. 가짜 로그인·가짜 저장소로 직접 API 요청을 시험했습니다(A는 정상 사용, B의 A 메모 읽기·수정·삭제는 404, 본문 role은 403, 저장소가 남의 행을 돌려주는 경우에도 응답에서 빠지거나 404). 이 시험 파일은 저장소에 넣지 않았고, 실제 배포 API로 한 것이 아닙니다.
+
+### 아직 남은 약점
+
+- 판정 요청에는 메모 소유자 정보와 강사 역할이 없어서, 판정기는 "B가 A 메모를 요청"하는 것을 구별하지 못하고(둘 다 `allow`) 강사임도 확인하지 못합니다. 소유자 확인은 최종 자료 API가 맡고, 강사 공지는 역할 계약이 생길 때까지 누구에게도 쓰기를 열지 않았습니다.
+- 실제 배포 API로 B의 A 메모 접근과 role 거부를 시험한 결과는 아직 없고, `npm run bundle`의 직접 점검에서는 미실행으로 남겼습니다.
+- 이유 코드 `resource_unknown`, `zone_forbidden`, `request_invalid`, `step_up_required`가 운영 등록부의 `allowedReasonCodes`에 있는지는 이 저장소만으로 확인하지 못했습니다.
+- 공지 경로 이름과 기능 이름 목록(`export` 등)은 문서에 정해진 값이 없어 제가 정한 시작값입니다. 판정기가 `src/resources.mjs`를 불러오므로 두 파일은 함께 있어야 합니다.
+- 수정·삭제에 소유자를 읽는 질의가 하나 늘었습니다.

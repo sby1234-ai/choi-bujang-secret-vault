@@ -40,7 +40,7 @@ async function status(app, method, path, { headers = {}, body } = {}) {
 const ABSENT_ID = '00000000-0000-4000-8000-000000000000';
 
 export async function runAttackChecks(config) {
-  if (!Number.isInteger(config.step) || config.step < 1 || config.step > 7) {
+  if (!Number.isInteger(config.step) || config.step < 1 || config.step > 8) {
     throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   }
   const app = appUrl(config);
@@ -129,6 +129,13 @@ export async function runAttackChecks(config) {
       observed: '미실행 (심판의 가상 접속 사건은 이 점검에서 보내지 않았고, 로컬 npm run decider:test와 npm run fixture:7 연습으로만 확인함)' });
     results.push({ attackId: 'relogin_before_data_block', expected: '다시 로그인 전에는 자료가 막히고 새 로그인 뒤 요청은 다시 판정되어 허용됨',
       observed: '미실행 (같은 로그인으로 다시 로그인한 시각을 확인하는 엔진 계약이 저장소에 없어 실제 자료 차단은 시험하지 않음)' });
+  }
+  if (config.step >= 8) {
+    // 8단계: 구역 규칙은 판정기에서, 소유자 대조는 최종 자료 API에서 합니다. 둘 다 이 점검에서는 보내지 않았습니다.
+    results.push({ attackId: 'announcement_write_denied', expected: '일반 학생의 강사 공지 수정이 판정기에서 거부되고 알 수 없는 경로도 거부됨',
+      observed: '미실행 (심판의 가상 요청은 이 점검에서 보내지 않았고, 로컬 npm run decider:test와 node src/resources.mjs 연습으로만 확인함)' });
+    results.push({ attackId: 'direct_api_owner_recheck', expected: '메뉴를 거치지 않은 직접 API 요청에서도 다른 사람 메모가 나오지 않고 본문 role은 거부됨',
+      observed: '미실행 (A·B 로그인 토큰이 필요해 자동 점검에서는 보내지 않았고, 가짜 로그인·가짜 저장소로 만든 로컬 시험으로만 확인함)' });
   }
   return results;
 }
