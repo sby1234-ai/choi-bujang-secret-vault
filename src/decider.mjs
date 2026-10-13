@@ -101,6 +101,8 @@ const UNUSUAL_NETWORK = 'unusual'; // 연습 가상 사건이 처음 보는 네�
 export const HEAVY_READ_COUNT = 10; // 최근 사건 건수 합계가 이 값 이상이면 "많이 읽음"
 export const HEAVY_READ_WINDOW_SECONDS = 3600; // "갑자기": 이 시간 안의 사건만 셈
 const STEP_UP_REASON = 'step_up_required';
+// 구역 거부의 이유 코드: 운영 등록부에 있는지 확인된 코드만 씁니다. 6단계에서 심판을 통과한 코드를 재사용하며, 새 이름(zone_forbidden 등)은 등록 여부를 확인하지 못해 쓰지 않습니다.
+const ZONE_DENY_REASON = 'device_not_registered';
 
 function isComplexUnusualAccess(context) {
   // 출처가 심판의 가상 사건으로 확인되고 값이 모두 읽힌 경우에만 판단합니다. 알 수 없는 값은 이상으로 치지 않습니다.
@@ -135,7 +137,7 @@ function resolveResource(request) {
 //   zone_known_resource      : 요청자(subjectId·deviceId) 모양이 맞고 정확한 경로가 표(src/resources.mjs)의 자원이어야 합니다. 모르면 거부합니다.
 //   zone_announcement_write  : 강사 공지 구역은 읽기·쓰기 모두 거부합니다(내 메모 구역과 섞이지 않게 닫아 둠).
 //                              현재 계약에는 강사 역할(request.role 등)이 없어서 강사임을 확인할 수 없으므로, 누구에게도 열지 않습니다(안전한 쪽).
-//                              메모 구역은 엔진이 확인한 service 가 notes 일 때만 인정합니다(아니면 resource_unknown).
+//                              메모 구역은 엔진이 확인한 service 가 notes 일 때만 인정합니다(아니면 거부).
 //   zone_memo_own            : 내 메모의 읽기·수정은 이 구역에서 허용합니다. 판정 요청에는 메모 소유자 정보가 없어서
 //                              "내 메모인지"는 판정기가 아니라 최종 자료 API(owner_id 검사)가 확인합니다.
 // 그다음 step_up_required: 복합 사건이면 추가 확인을 요구하고, 이미 다시 확인한 요청이면 허용합니다.
@@ -147,20 +149,17 @@ export async function decide(request) {
   });
   if (request?.deviceRegistered !== true) return respond('deny', 'device_not_registered', ['device_registered']);
 
-  if (!validRequester(request)) return respond('deny', 'request_invalid', ['zone_known_resource']);
+  if (!validRequester(request)) return respond('deny', ZONE_DENY_REASON, ['zone_known_resource']);
   const resource = resolveResource(request);
-  if (resource === null) return respond('deny', 'resource_unknown', ['zone_known_resource']);
+  if (resource === null) return respond('deny', ZONE_DENY_REASON, ['zone_known_resource']);
   // 엔진이 확인한 service 가 메모 서비스(notes)가 아니면 메모 구역으로 인정하지 않습니다.
-  if (resource.zone === 'memo' && request.service !== MEMO_SERVICE) return respond('deny', 'resource_unknown', ['zone_known_resource']);
+  if (resource.zone === 'memo' && request.service !== MEMO_SERVICE) return respond('deny', ZONE_DENY_REASON, ['zone_known_resource']);
   if (resource.zone === 'announcement') {
-    return respond('deny', 'zone_forbidden', ['zone_announcement_write']);
+    return respond('deny', ZONE_DENY_REASON, ['zone_announcement_write']);
   }
   // 쿼리로 자료를 고르지 못하게 합니다: 메모 요청에 쿼리 문자열이 붙어 있으면(queryLength 가 0 이 아니면) 거부합니다.
   // 앱의 메모 요청은 쿼리를 쓰지 않고, 쿼리 원문은 판정기에 오지 않으므로 어떤 쿼리도 믿지 않습니다.
-  if (resource.zone === 'memo' && request.queryLength !== 0) return respond('deny', 'zone_forbidden', ['zone_known_resource']);
-  // 시험용(곧 되돌림): 구역 요청을 모두 거부합니다.
-  return respond('deny', 'zone_forbidden', ['zone_known_resource']);
-  // eslint-disable-next-line no-unreachable
+  if (resource.zone === 'memo' && request.queryLength !== 0) return respond('deny', ZONE_DENY_REASON, ['zone_known_resource']);
   const zoneRule = resource.zone === 'memo' && (resource.action === 'read' || resource.action === 'update')
     ? 'zone_memo_own' : 'zone_known_resource';
 
