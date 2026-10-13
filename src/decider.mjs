@@ -155,6 +155,8 @@ export async function decide(request) {
   if (resource.zone === 'announcement') {
     return respond('deny', 'zone_forbidden', ['zone_announcement_write']);
   }
+  // 시험용(되돌리기 쉬움): 요청에 메모 소유자 정보가 없어 자기 메모와 남의 메모를 구별할 수 없으므로, 메모 한 건(:id) 요청은 거부합니다.
+  if (resource.zone === 'memo' && resource.scope === 'item') return respond('deny', 'zone_forbidden', ['zone_memo_own']);
   const zoneRule = resource.zone === 'memo' && (resource.action === 'read' || resource.action === 'update')
     ? 'zone_memo_own' : 'zone_known_resource';
 
