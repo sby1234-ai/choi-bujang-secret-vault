@@ -33,10 +33,10 @@ export function restoreRepo() {
       if (error) throw error;
       return { conflict: false };
     },
-    async updateNote(id, ownerId, fields) {
-      // title·content만 바꾸고, id·owner_id 조건으로 한 건만 고칩니다. 응답의 바뀐 행은 읽지 않습니다(쓴 뒤 다시 읽어 확인합니다).
-      const { error } = await notes().update({ title: fields.title, content: fields.content })
-        .eq('id', id).eq('owner_id', ownerId);
+    async updateNote(id, fields) {
+      // owner_id·title·content를 사본 값으로 되돌리고, id 조건으로 한 건만 고칩니다. 응답의 바뀐 행은 읽지 않습니다(쓴 뒤 다시 읽어 확인합니다).
+      const { error } = await notes()
+        .update({ owner_id: fields.owner_id, title: fields.title, content: fields.content }).eq('id', id);
       if (error) throw error;
     },
     async writeAudit(entry) {

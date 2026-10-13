@@ -23,10 +23,10 @@ function fakeRepo({ backups, notes, auditFails = false, noopUpdate = false }) {
       if (state.notes.has(row.id)) return { conflict: true };
       state.notes.set(row.id, { ...row }); state.writes.push(['insert', row.id]); return { conflict: false };
     },
-    async updateNote(id, owner, fields) {
+    async updateNote(id, fields) {
       if (noopUpdate) return undefined;
       const row = state.notes.get(id);
-      if (!row || row.owner_id !== owner) return undefined;
+      if (!row) return undefined;
       Object.assign(row, fields); state.writes.push(['update', id]); return undefined;
     },
     async writeAudit(entry) { if (auditFails) throw new Error('x'); state.audit.push(entry); },
@@ -142,15 +142,31 @@ test('사본 내용이 해시와 맞지 않으면 409로 중단하고 쓰지 않
   assert.deepEqual(repo.state.audit.map(row => row.outcome), ['backup_verification_failed']);
 });
 
-test('현재 메모의 소유자가 사본과 다르면 덮어쓰지 않고 409이며 감사 기록에 남는다', async () => {
+test('소유자가 바뀐 메모도 사본의 소유자로 되돌리고, ID·소유자·내용 해시를 사본과 같게 만든다', async () => {
   const w = world();
   w.notes[0] = { ...w.notes[0], owner_id: A };
   const repo = fakeRepo(w);
   const result = await run(repo, B, { id: NOTE_B });
-  assert.equal(result.status, 409);
-  assert.equal(result.body.error, 'OWNER_CONFLICT');
-  assert.deepEqual(repo.state.writes, []);
-  assert.deepEqual(repo.state.audit.map(row => row.outcome), ['owner_conflict']);
+  assert.equal(result.status, 200);
+  assert.deepEqual(result.body, { id: NOTE_B, restored: true, contentSha256: originalHash });
+  const row = repo.state.notes.get(NOTE_B);
+  assert.equal(row.id, NOTE_B);
+  assert.equal(row.owner_id, B);
+  assert.equal(contentHash(row), originalHash);
+  assert.deepEqual(repo.state.writes, [['update', NOTE_B]]);
+  assert.equal(repo.state.notes.get(NOTE_A).owner_id, A);
+  assert.deepEqual(repo.state.audit.map(entry => entry.outcome), ['restored']);
+});
+
+test('내용은 사본과 같지만 소유자만 바뀐 메모도 소유자를 되돌린다', async () => {
+  const w = world();
+  w.notes[0] = { id: NOTE_B, owner_id: A, ...ORIGINAL };
+  const repo = fakeRepo(w);
+  const result = await run(repo, B, { id: NOTE_B });
+  assert.equal(result.status, 200);
+  assert.equal(result.body.restored, true);
+  assert.equal(repo.state.notes.get(NOTE_B).owner_id, B);
+  assert.equal(repo.state.audit[0].outcome, 'restored');
 });
 
 test('복원 성공 뒤 감사 기록을 쓰지 못하면 성공 응답을 주지 않는다', async () => {

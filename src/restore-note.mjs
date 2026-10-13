@@ -1,7 +1,7 @@
 // 10단계: 비공개 가상 메모 사본에서 지정한 한 건만 되살리는 판단 로직입니다.
 // 저장소 접근은 repo(주입)에 맡겨서, 이 파일은 DB 없이 시험할 수 있습니다.
 // 소유자는 서버가 검증한 로그인에서만 얻습니다. 본문에는 메모 번호(id) 하나만 받고, 다른 항목은 모두 400입니다.
-// 다른 메모는 읽지도 쓰지도 않습니다. 감사 기록은 덧붙이기만 하며, 성공뿐 아니라 거부된 시도(사본 없음·사본 검증 실패·소유자 충돌)도 한 줄씩 남깁니다.
+// 다른 메모는 읽지도 쓰지도 않습니다. 감사 기록은 덧붙이기만 하며, 성공뿐 아니라 거부된 시도(사본 없음·사본 검증 실패)도 한 줄씩 남깁니다.
 import { createHash } from 'node:crypto';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
@@ -28,7 +28,7 @@ export function readRestoreInput(body) {
 
 const deny = (status, error) => ({ status, body: { error } });
 
-// repo: readBackup(id), readNote(id), insertNote(row) -> { conflict }, updateNote(id, ownerId, fields), writeAudit(entry)
+// repo: readBackup(id), readNote(id), insertNote(row) -> { conflict }, updateNote(id, { owner_id, title, content }), writeAudit(entry)
 // writeAudit 항목: { note_id, owner_id, before_sha256, content_sha256(복원 뒤 해시), outcome }. 거부된 시도는 해시가 null 입니다.
 export async function restoreNote({ userId, input, repo, log = () => {} }) {
   // 거부된 시도도 기록합니다. 기록이 실패해도 원래의 거부 응답은 그대로 돌려줍니다.
@@ -55,22 +55,19 @@ export async function restoreNote({ userId, input, repo, log = () => {} }) {
     return denyAudited(409, 'BACKUP_INVALID', 'backup_verification_failed');
   }
 
+  // 현재 메모의 소유자가 사본과 달라도(소유자를 바꾸는 변조), 사본의 소유자(= 로그인한 본인)로 되돌립니다.
   const current = await repo.readNote(input.id);
-  if (current && !same(current.owner_id, userId)) {
-    log('current_owner_differs');
-    return denyAudited(409, 'OWNER_CONFLICT', 'owner_conflict');
-  }
   const beforeHash = current ? contentHash(current) : null;
   let outcome;
   if (!current) {
     const { conflict } = await repo.insertNote({ id: backup.id, owner_id: userId, title: backup.title, content: backup.content });
     if (conflict) { log('id_exists'); return deny(409, 'ID_EXISTS'); }
     outcome = 'created';
-  } else if (beforeHash === savedHash) {
+  } else if (beforeHash === savedHash && same(current.owner_id, backup.owner_id)) {
     outcome = 'unchanged';
   } else {
     // 쓰기 요청의 응답(바뀐 행 수)에는 기대지 않습니다. 쓴 뒤 다시 읽어 확인한 결과만으로 판단합니다.
-    await repo.updateNote(input.id, userId, { title: backup.title, content: backup.content });
+    await repo.updateNote(input.id, { owner_id: backup.owner_id, title: backup.title, content: backup.content });
     outcome = 'restored';
   }
 
