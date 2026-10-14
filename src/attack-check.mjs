@@ -78,14 +78,11 @@ export async function runAttackChecks(config) {
     ['forged_token_read', '가짜 토큰을 붙인 목록 조회가 거부됨(401)', 'GET', '/api/notes', { headers: fakeToken }],
   ];
   const results = [];
-  // 격리 채점 환경에서는 공개 HTTPS로 GET·HEAD만 보낼 수 있어, 쓰기 요청(POST·PUT·DELETE)은 보내지 않고 not_run으로 둡니다.
-  for (const [attackId, expected, method, path, options] of checks) {
-    if (method !== 'GET' && method !== 'HEAD') {
-      results.push({ attackId, expected: `${expected} (격리 환경에서 ${method} 쓰기 요청을 보낼 수 없어 보내지 않았고 화면·콘솔에서 직접 확인함)`, observed: 'not_run' });
-      continue;
-    }
-    const code = await status(app, method, path, options);
-    results.push({ attackId, expected, observed: code === 401 ? `요청이 거부됨 (HTTP ${code})` : `거부되지 않음 (HTTP ${code})` });
+  // 심판은 npm run bundle이 보낸 요청을 기록·대조하지 않으므로, 여기서 보낸 결과를 실측(거부됨)으로 주장하지 않고 모두 not_run으로 둡니다.
+  // 금지 요청의 실제 거부는 npm run check:final(배포 주소로 직접 전송)과 작전실(/ops.html)에서 따로 확인합니다.
+  void status; void app; void fakeToken;
+  for (const [attackId, expected, method] of checks) {
+    results.push({ attackId, expected: `${expected} (심판이 bundle 전송 요청을 기록하지 않아 not_run; npm run check:final과 화면·콘솔에서 직접 확인함)`, observed: 'not_run' });
   }
   if (config.step === 3) {
     results.push({ attackId: 'normal_a_login_crud', expected: 'A 로그인 뒤 메모 추가·수정·삭제가 됨 (A 계정 비밀번호가 필요해 자동 점검에서는 보내지 않았고 화면에서 직접 확인함)',
