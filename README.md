@@ -533,7 +533,7 @@ console.log(r.status, await r.json());
 - 서버 함수의 서버 전용 키는 DB 권한 제한을 지나치므로, 사본과 감사 기록의 수정·삭제 금지는 테이블 권한(수정·삭제를 주지 않음)에 의존합니다.
 - `restoreRoute`의 값과 표기 형식, 이 경로를 `allowedRoutes`에 넣지 않은 선택이 심판이 기대하는 것과 맞는지는 문서에 정해진 값이 없어 알 수 없습니다. 판정기는 `restore`를 기능 이름으로 보고 거부하며, 판정기를 앞에 세우면 이 경로도 거부됩니다.
 
-## 11단계: 나만의 접속 앱을 완성합니다 (현재 상태)
+## 11단계: 나만의 접속 앱을 완성합니다 (11단계 기록)
 
 ### 현재 작동하는 기능
 
@@ -583,3 +583,58 @@ update public.devices set status = 'approved', approved_at = now() where code = 
 - 판정기(`src/decider.mjs`)는 실제 API 앞에 연결되지 않았고, `devices` 표의 승인 상태를 판정 요청의 `deviceRegistered`로 넘기는 연결도 없습니다.
 - 심판 로그인이 기기 검사를 건너뛰는 선택이 심판이 기대하는 것과 맞는지는 문서에 정해진 값이 없어 알 수 없습니다.
 - 서비스 워커는 오프라인 안내 화면 하나만 저장합니다. 오프라인에서 메모를 보거나 고칠 수는 없습니다.
+
+## 12단계: 탈환 작전실을 완성합니다 (현재 상태)
+
+### 이 저장소의 구성 — 학생 몫과 제공 엔진
+
+이 자료실(`choi-bujang-secret-vault`)의 보호 코드는 모두 학생이 작성한 몫입니다. 판정·탐지·접속 앱이 기대는 외부 틀은 **ALEPH SDP 엔진**(운영 반 엔진, `aleph.config.json`의 `judgeIssuer`로 접수)입니다. 아래처럼 나뉩니다.
+
+- **학생 몫(이 저장소):** 접속 앱 화면(`public/`), 로그인·메모·복원·기기·작전실 서버 함수(`api/`), 판정기 규칙(`src/decider.mjs`), 탐지 규칙(`src/detect.mjs`), 자원 구역(`src/resources.mjs`), 로그인 토큰 검증(`src/verify-login.mjs`), 정책 사본·복구 도구(`scripts/policy-*.mjs`, `policy/verified-policy.json`), DB 스키마(`db/`), 점검 스크립트(`src/attack-check.mjs`, `scripts/final-check.mjs`, `test/`).
+- **제공 엔진(ALEPH SDP 엔진, 이 저장소에 없음):** 실제 접속 앞단에서 신원·기기·경로를 검증해 판정기에 요청을 전달하는 반 엔진, 접속 사건을 모아 탐지에 넘기고 회수를 집행하는 경로, 그리고 심판 접수 서버(`judgeIssuer`). 요청·응답 계약은 `docs/DECIDER_REQUEST.md`와 `docs/DETECT_EVENTS.md`에 적혀 있습니다. 판정기·탐지의 `npm run decider:test`·`detect:test`·`fixture:7`는 이 엔진 없이 도는 **로컬 연습**이며, 실제 접속 판정·사건·회수가 아닙니다(작전실 화면에서도 이 부분은 `미실행`으로 표시됩니다).
+
+### 비밀값은 저장소에 두지 않습니다
+
+서버 전용 키(`SUPABASE_SECRET_KEY`), 공개용 키(`SUPABASE_PUBLISHABLE_KEY`), 접속 URL(`SUPABASE_URL`)은 **Vercel 프로젝트 환경변수**에만 넣고, 로그인 토큰·기기 증표는 서버가 HttpOnly 쿠키로만 둡니다. 저장소·제출 묶음·로그·이 문서에는 비밀값을 적지 않습니다. 계정 비밀번호는 Supabase 대시보드에서만 다룹니다. 공개용 키는 공개용이라 `src/attack-check.mjs`의 거부 점검에만 상수로 쓰고 화면(`public/`)에는 넣지 않습니다.
+
+### 설치 (처음 한 번)
+
+1. 저장소를 받습니다: `git clone https://github.com/sby1234-ai/choi-bujang-secret-vault && cd choi-bujang-secret-vault`
+2. 의존성을 설치합니다: `npm install` (오류 없이 끝나야 합니다. `@supabase/supabase-js`, `jose`만 받습니다.)
+3. Supabase SQL Editor에서 스키마를 만듭니다(각 파일 전체를 붙여 넣고 Run, 여러 번 실행해도 됩니다): `db/notes.sql`(메모·권한), `db/notes-backup.sql`(사본·복원 감사), `db/devices.sql`(기기 승인).
+4. Vercel 프로젝트에 환경변수 `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SUPABASE_PUBLISHABLE_KEY`를 넣습니다(값은 Supabase 대시보드에서 복사, 저장소에 적지 않음).
+
+### 실행 (배포·로컬)
+
+- **배포:** `main`에 push하면 Vercel이 `npm run build`로 `public/`을 배포합니다. 배포 주소 `https://choi-bujang-secret-vault-eight-psi.vercel.app`에서 로그인→기기 승인 요청→(관리자가 SQL로 승인)→`승인 상태 다시 확인`→자료실·작전실(`/ops.html`) 순으로 씁니다.
+- **로컬 화면만:** `npm run build -- --local` 로 `public/`을 만들어 봅니다(배포·심판 접수를 증명하지 않음). 서버 함수(`api/`)는 Vercel에서만 도므로 로컬 정적 화면에서는 로그인·메모가 동작하지 않습니다.
+- **로컬 연습·시험:** `npm run test:restore`(복원 32), `npm run test:ops`(작전실 요약 5), `npm run decider:test`·`detect:test`·`fixture:7`(판정·탐지 연습), `npm run xdr:run`(보너스 XDR). 모두 제공 엔진 없이 도는 연습입니다.
+
+### 중지 (접속·기기 거두기)
+
+- **한 기기 승인 회수:** Supabase SQL Editor에서 `update public.devices set status = 'revoked' where code = '<확인 코드>';`. 그 기기는 다음 요청부터 `403 DEVICE_NOT_APPROVED`로 막히고 자료실이 닫힙니다.
+- **한 세션 로그아웃:** 화면의 `로그아웃`(서버가 세션을 끝내고 토큰 쿠키를 지움). 토큰은 곧 만료됩니다.
+- **자료 API 전체 차단(비상):** Supabase에서 `revoke all on table public.notes from service_role;`를 실행하면 메모 경로가 막힙니다(되돌리려면 `db/notes.sql`의 `grant` 줄을 다시 실행).
+- **배포 중지:** Vercel 프로젝트에서 배포를 일시 중지하거나 환경변수를 비우면 서버 함수가 `500 SERVER_NOT_CONFIGURED`로 응답합니다.
+
+### 복구 (자료·정책 되돌리기)
+
+- **정책(보호 규칙) 복구:** `npm run policy:diff`로 검사한 저장점 커밋(`policy/verified-policy.json`의 `verifiedCommit`) 대비 바뀐 정책 파일을 봅니다. 되돌리려면 `npm run policy:restore -- --apply --confirm=<확인 번호>`. 적용 전후로 사본을 다시 읽어 검증하며, 학습 DB·배포 같은 실제 운영 정책에는 접속하지 않습니다.
+- **메모 한 건 복구:** 배포 주소에서 승인된 기기로 로그인해 `POST /api/notes/restore`에 `{ "id": "<메모 번호>" }`를 보냅니다. 사본(`notes_backup`)을 쓰기 전후로 다시 읽어 ID·소유자·내용 해시를 대조하고, 모든 시도를 `notes_restore_audit`에 남깁니다.
+- **복구 확인:** `npm run check:final`로 1~11단계의 금지 요청이 여전히 거부되는지 실측하고, `/ops.html`(탈환 작전실)에서 정책 사본 버전과 복원·기기 기록의 수치가 가린 서버 기록과 맞는지 봅니다. 이 확인은 학생이 보낸 요청의 기록이며 심판의 판정이 아닙니다.
+
+### 재현 순서 (빈 환경에서 처음부터)
+
+1. 위 **설치** 1~4를 합니다. 2. `main`에 push해 Vercel 배포가 Ready가 되게 합니다. 3. 배포 주소에서 A·B 계정으로 로그인해 봅니다(계정은 Supabase Auth에 만들어 두고 `db/notes.sql` 맨 아래 예시로 `owner_id`를 연결). 4. B로 기기 승인을 요청하고 관리자가 SQL로 승인합니다. 5. `/ops.html`에서 네 칸(판정기·탐지·회수·복구)이 실제 실행·조회로 뜨는지 봅니다. 6. `npm run check:final`로 금지 요청 거부를 실측합니다. 7. `npm run bundle`로 제출 묶음을 만들어 심판(ALEPH SDP 엔진)에 제출합니다. 로컬 연습과 화면 문구는 심판 판정이 아니며, 최종 판정은 제공 엔진이 합니다.
+
+### 확인 방법
+
+- 위 네 절(설치·실행·중지·복구)에서 학생 몫(이 저장소 파일·명령)과 제공 엔진(ALEPH SDP 엔진·심판 접수)이 문단마다 구분되어 적혀 있습니다.
+- 재현 순서가 번호로 있어, 빈 환경에서 clone→install→배포→승인→확인→제출까지 그대로 따라 할 수 있습니다.
+- 비밀값은 어느 절에도 값으로 적지 않고, 넣는 위치(Vercel 환경변수·Supabase 대시보드·HttpOnly 쿠키)만 밝혔습니다.
+
+### 아직 남은 약점
+
+- 판정기·탐지는 제공 엔진(ALEPH SDP 엔진)에 연결되기 전까지 실제 접속 판정·사건·회수를 하지 않습니다. 작전실은 이 부분을 `미실행`으로 정직하게 표시합니다.
+- `npm run check:final`은 로그인 없이 보낼 수 있는 금지 요청과 첫 화면 열림만 실측합니다. 로그인이 필요한 정상 요청(본인 메모 사용, 승인된 기기 접근)은 계정 비밀번호가 필요해 B 탭 콘솔에서 직접 확인하며, 자동 점검에서는 보내지 않습니다.
+- 재현 순서의 계정·소유자 연결과 기기 승인은 사람이 Supabase 대시보드에서 하는 수동 단계입니다.
