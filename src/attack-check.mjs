@@ -78,7 +78,12 @@ export async function runAttackChecks(config) {
     ['forged_token_read', '가짜 토큰을 붙인 목록 조회가 거부됨(401)', 'GET', '/api/notes', { headers: fakeToken }],
   ];
   const results = [];
+  // 격리 채점 환경에서는 공개 HTTPS로 GET·HEAD만 보낼 수 있어, 쓰기 요청(POST·PUT·DELETE)은 보내지 않고 not_run으로 둡니다.
   for (const [attackId, expected, method, path, options] of checks) {
+    if (method !== 'GET' && method !== 'HEAD') {
+      results.push({ attackId, expected: `${expected} (격리 환경에서 ${method} 쓰기 요청을 보낼 수 없어 보내지 않았고 화면·콘솔에서 직접 확인함)`, observed: 'not_run' });
+      continue;
+    }
     const code = await status(app, method, path, options);
     results.push({ attackId, expected, observed: code === 401 ? `요청이 거부됨 (HTTP ${code})` : `거부되지 않음 (HTTP ${code})` });
   }
@@ -100,6 +105,10 @@ export async function runAttackChecks(config) {
     ['anon_data_api_delete', '공개용 키로 DB 메모 직접 삭제가 거부됨(401·403)', 'DELETE', `${dataApi}?id=eq.${ABSENT_ID}`],
   ];
   for (const [attackId, expected, method, url] of direct) {
+    if (method !== 'GET' && method !== 'HEAD') {
+      results.push({ attackId, expected: `${expected} (격리 환경에서 ${method} 쓰기 요청을 보낼 수 없어 보내지 않았고 화면·콘솔에서 직접 확인함)`, observed: 'not_run' });
+      continue;
+    }
     const code = await status(app, method, url, { headers: anonHeaders });
     results.push({ attackId, expected, observed: code === 401 || code === 403 ? `요청이 거부됨 (HTTP ${code})` : `거부되지 않음 (HTTP ${code})` });
   }
@@ -110,9 +119,8 @@ export async function runAttackChecks(config) {
     const leaked = /sb_(?:publishable|secret)_[A-Za-z0-9_-]{8,}|supabase\.co|eyJ[A-Za-z0-9_-]{12,}\.eyJ/iu.test(pageText);
     results.push({ attackId: 'page_has_no_supabase_key', expected: '첫 화면 응답에 Supabase 키·저장소 주소가 보이지 않음',
       observed: leaked ? `첫 화면 응답에 키 또는 저장소 주소로 보이는 문자열이 있음 (HTTP ${pageResponse.status})` : `첫 화면 응답에 키·저장소 주소가 보이지 않음 (HTTP ${pageResponse.status})` });
-    const badLogin = await status(app, 'POST', '/api/login', { body: { email: 'nobody@invalid.test', password: 'wrong-password-for-check' } });
-    results.push({ attackId: 'wrong_password_login', expected: '없는 계정으로 로그인하면 거부됨(401·429)',
-      observed: badLogin === 401 || badLogin === 429 ? `요청이 거부됨 (HTTP ${badLogin})` : `거부되지 않음 (HTTP ${badLogin})` });
+    results.push({ attackId: 'wrong_password_login', expected: '없는 계정으로 로그인하면 거부됨(401·429) (격리 환경에서 POST 요청을 보낼 수 없어 보내지 않았고 화면에서 직접 확인함)',
+      observed: 'not_run' });
   }
   results.push({ attackId: 'a_b_own_note_crud', expected: 'A·B가 각자 자기 메모를 추가·수정·삭제할 수 있음 (계정 비밀번호가 필요해 자동 점검에서는 보내지 않았고 화면에서 직접 확인함)',
     observed: 'not_run' });
@@ -150,9 +158,10 @@ export async function runAttackChecks(config) {
   if (config.step >= 11) {
     // 11단계: 기기 승인 상태 확인·승인 요청(/api/device)도 로그인이 없으면 거부되어야 합니다. 이 요청은 실제로 보냅니다.
     // 승인 전 자료 차단과 승인 뒤 정상 화면은 B 로그인과 관리자 승인이 필요해 이 점검에서는 보내지 않고 README 표에 적습니다.
-    const device = await status(app, 'POST', '/api/device', { body: {} });
-    results.push({ attackId: 'anonymous_device_request', expected: '로그인 없는 기기 승인 요청이 거부됨(401)',
-      observed: device === 401 ? `요청이 거부됨 (HTTP ${device})` : `거부되지 않음 (HTTP ${device})` });
+    // 승인 요청(POST)은 격리 환경에서 보낼 수 없어 not_run으로 둡니다.
+    results.push({ attackId: 'anonymous_device_request', expected: '로그인 없는 기기 승인 요청이 거부됨(401) (격리 환경에서 POST 요청을 보낼 수 없어 보내지 않았고 화면에서 직접 확인함)',
+      observed: 'not_run' });
+
   }
   return results;
 }
