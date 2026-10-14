@@ -484,11 +484,10 @@ npm run policy:diff
 ### 확인 방법
 
 1. `npm run test:restore`: 시험 통과 줄만 나오고 실패가 0이어야 합니다. 가짜 저장소로 한 로컬 연습이며 실제 배포 API나 심판 통과 증거가 아닙니다.
-2. 배포 뒤, 시험 계정 B로 로그인한 탭의 개발자 도구 콘솔에서 B의 메모 번호로 요청합니다(토큰은 화면에 출력하지 않습니다).
+2. 배포 뒤, 시험 계정 B로 로그인한 탭의 개발자 도구 콘솔에서 B의 메모 번호로 요청합니다(11단계부터 로그인 토큰은 HttpOnly 쿠키로만 함께 가므로 코드에 토큰이 없고, 승인된 기기여야 합니다).
 
 ```
-const t = JSON.parse(localStorage.getItem('byteback-session')).access_token;
-const r = await fetch('/api/notes/restore', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body: JSON.stringify({ id: '<B의 메모 번호>' }) });
+const r = await fetch('/api/notes/restore', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: '<B의 메모 번호>' }) });
 console.log(r.status, await r.json());
 ```
 
@@ -540,6 +539,7 @@ console.log(r.status, await r.json());
 - 오프라인 안내: `public/sw.js`는 오프라인 안내 화면(`public/offline.html`) 한 장만 미리 받아 두고, 화면 이동이 네트워크에 닿지 못할 때만 그 화면을 보여 줍니다. `/api/…` 요청(로그인·메모·복원·기기)은 가로채거나 저장하지 않습니다. 첫 화면에서도 연결이 끊기면 오프라인 안내 줄이 나옵니다.
 - 기기 승인 상태 표시: 첫 화면의 「이 기기의 승인 상태」 칸이 서버 승인(미등록·승인 대기·승인됨·회수됨)과 앱 설치 여부를 따로 보여 줍니다. 앱으로 설치했거나 앱 화면으로 열었다는 사실은 승인에 쓰지 않고 서버로 보내지도 않습니다.
 - 기기 승인 흐름: `GET /api/device`는 이 브라우저의 승인 상태를, `POST /api/device`는 승인 요청을 처리합니다(둘 다 로그인 필요). 승인 요청은 기기를 `승인 대기`로 등록하고 확인 코드(예: `7120-9F4C`)를 보여 줄 뿐 권한을 주지 않습니다. 관리자가 Supabase SQL Editor에서 그 확인 코드로 `approved`로 바꿔야 승인됩니다(`db/devices.sql` 아래 예시). 서버 함수는 DB 권한상 `devices` 표에 읽기와 세 열(`owner_id`, `token_sha256`, `code`) 넣기만 할 수 있어 스스로 승인할 수 없습니다.
+- 로그인 토큰: 접속 토큰·갱신 토큰은 로그인·갱신 응답 본문으로 화면에 주지 않고, 서버가 HttpOnly·Secure·SameSite=Strict 쿠키(`__Host-byteback-access`, `__Host-byteback-refresh`)로만 둡니다. 화면은 이메일과 만료 시각만 메모리에 두고 브라우저 저장소를 쓰지 않으며, 다시 열 때는 `POST /api/refresh`(갱신 쿠키)로 로그인 상태를 묻습니다. 서버의 로그인 검사는 `Authorization` 머리글이 있으면 그것을, 없으면 접속 쿠키를 같은 검증기(`src/verify-login.mjs`)로 검사합니다.
 - 기기 증표: 서버가 만든 무작위 값이며, 브라우저에는 자바스크립트가 읽을 수 없는 쿠키(`__Host-byteback-device`, HttpOnly·Secure·SameSite=Strict)로만 둡니다. localStorage·sessionStorage·IndexedDB에는 넣지 않고, DB에는 그 값의 SHA-256 지문만 저장합니다. 증표는 로그인한 사용자에게 묶여, 다른 계정으로 로그인하면 같은 브라우저라도 `미등록`입니다.
 - 승인 전 자료 차단: 화면은 서버가 `승인됨`이라고 답하기 전에는 메모를 요청하지도 표시하지도 않습니다. 서버도 메모 경로(`/api/notes`, `/api/notes/:id`, `/api/notes/restore`)에서 학생 로그인의 기기 승인을 확인해, 승인 전에는 `403 DEVICE_NOT_APPROVED`로 거부합니다. 승인된 기기에서는 앞 단계의 소유자 검사(남의 메모 `404`, 소유자 변경 `403`)와 복원 규칙이 그대로입니다.
 - 심판 로그인(심판 발급자의 ES256 서명 토큰)은 브라우저 기기 쿠키가 없는 가상 요청이라 이 기기 검사를 건너뜁니다. 심판 쪽 기기 확인은 운영 엔진이 따로 한다는 `docs/DECIDER_REQUEST.md`의 `deviceRegistered` 설명을 근거로 한 제 가정입니다.
@@ -564,14 +564,16 @@ update public.devices set status = 'approved', approved_at = now() where code = 
 | 승인 전 | 로그인 직후 `미등록`, 메모 칸에 "승인되지 않아 자료를 표시하지 않습니다" | 메모가 보이지 않음 | 2026-10-14 B 계정 화면: `미등록`, 메모 없음 |
 | 승인 요청 | `승인 대기`와 확인 코드가 나옴 | 버튼만으로 자료가 열리지 않음 | 2026-10-14 B 계정 화면: `승인 대기`·확인 코드 표시, 메모 없음 |
 | 관리자 승인 | SQL Editor에서 그 코드가 `approved` | — | 2026-10-14 SQL: 그 코드 한 줄이 `approved` |
-| 승인 뒤 | `GET /api/notes`가 `200`, 메모 목록·추가·수정·삭제가 전처럼 됨 | 없는 메모 번호 `404`, 토큰 없는 요청 `401` | 2026-10-14 B 탭 콘솔: 내 목록 `200`, 없는 번호 `404`, 토큰 없음 `401`. 승인 뒤 화면에서 추가·수정·삭제는 미실행 |
+| 승인 뒤 | `GET /api/notes`가 `200`, 메모 목록·추가·수정·삭제가 전처럼 됨 | 없는 메모 번호 `404`, 토큰 없는 요청 `401` | 2026-10-14 B 탭 콘솔(토큰을 브라우저 저장소에 두던 때): 내 목록 `200`, 없는 번호 `404`, 토큰 없음 `401`. 승인 뒤 화면에서 추가·수정·삭제는 미실행 |
+| 토큰 보관 | 로그인 뒤 개발자 도구 Application의 Local Storage·Session Storage가 비어 있고, 콘솔 `document.cookie`에 `byteback` 쿠키가 보이지 않음(HttpOnly), 새로고침 뒤에도 로그인 유지 | 화면 코드·브라우저 저장소에 토큰·기기 증표가 없음 | 미실행(쿠키 이전 배포 뒤 확인 예정) |
 | 직접 점검 | `npm run bundle`의 `anonymous_device_request`가 `401` | — | 아래 저장점의 `npm run bundle` 결과를 봅니다 |
 
 위 결과는 제가 직접 보낸 요청의 기록이며 심판의 판정이 아닙니다.
 
 ### 아직 남은 약점
 
-- 로그인 토큰(접속 토큰·갱신 토큰)은 아직 브라우저 저장소(`localStorage`의 `byteback-session`)에 있습니다. 기기 증표는 쿠키로만 두지만, 로그인 토큰을 HttpOnly 쿠키로 옮기는 일은 하지 않았습니다.
+- 2026-10-14 첫 제출(커밋 `c44c6fa`)에서 「기기 키 저장」(`S11_KEY_EXPOSED`)이 실패했습니다. 그때는 로그인 토큰이 브라우저 저장소에 있었으므로 쿠키로 옮겼습니다. 이 변경 뒤의 판정 결과는 아직 모릅니다.
+- 쿠키 인증이라 다른 사이트에서 보낸 요청은 SameSite=Strict로 막지만, 별도 CSRF 토큰은 두지 않았습니다.
 - 승인은 관리자가 SQL Editor에서 확인 코드로 직접 바꿉니다. 승인 화면이나 승인자 확인(예: 다른 기기에서의 확인)은 없습니다.
 - 한 브라우저에는 기기 증표가 하나라서, A가 승인받은 브라우저에서 B가 승인을 요청하면 증표가 B 것으로 바뀌어 A는 다시 요청해야 합니다.
 - 판정기(`src/decider.mjs`)는 실제 API 앞에 연결되지 않았고, `devices` 표의 승인 상태를 판정 요청의 `deviceRegistered`로 넘기는 연결도 없습니다.
