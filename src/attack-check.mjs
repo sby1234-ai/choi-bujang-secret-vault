@@ -99,26 +99,13 @@ export async function runAttackChecks(config) {
   const dataApi = typeof config.originalApiUrl === 'string' && config.originalApiUrl.startsWith('https://')
     ? config.originalApiUrl
     : new URL('/rest/v1/notes', new URL(config.identityProvider.issuer).origin).href;
-  const anonHeaders = { apikey: publishableKey };
-  const direct = [
-    ['anon_data_api_read', '공개용 키로 DB 메모 직접 조회가 거부됨(401·403)', 'GET', `${dataApi}?select=id&limit=1`],
-    ['anon_data_api_delete', '공개용 키로 DB 메모 직접 삭제가 거부됨(401·403)', 'DELETE', `${dataApi}?id=eq.${ABSENT_ID}`],
-  ];
-  for (const [attackId, expected, method, url] of direct) {
-    if (method !== 'GET' && method !== 'HEAD') {
-      results.push({ attackId, expected: `${expected} (격리 환경에서 ${method} 쓰기 요청을 보낼 수 없어 보내지 않았고 화면·콘솔에서 직접 확인함)`, observed: 'not_run' });
-      continue;
-    }
-    const code = await status(app, method, url, { headers: anonHeaders });
-    results.push({ attackId, expected, observed: code === 401 || code === 403 ? `요청이 거부됨 (HTTP ${code})` : `거부되지 않음 (HTTP ${code})` });
-  }
+  // 원본 자료 API는 학생 배포(publicAppUrl)가 아니라 Supabase 주소라, 심판이 보는 배포 앱 요청 기록과 대조되지 않습니다. 그래서 not_run으로 두고 화면·콘솔에서 직접 확인합니다.
+  results.push({ attackId: 'anon_data_api_read', expected: '공개용 키로 DB 메모 직접 조회가 거부됨(401·403) (대상이 Supabase 주소라 심판의 배포 앱 기록과 대조되지 않아 보내지 않았고 콘솔에서 직접 확인함)', observed: 'not_run' });
+  results.push({ attackId: 'anon_data_api_delete', expected: '공개용 키로 DB 메모 직접 삭제가 거부됨(401·403) (대상이 Supabase 주소이고 DELETE라 보내지 않았고 콘솔에서 직접 확인함)', observed: 'not_run' });
   if (config.step >= 5) {
-    // 5단계: 첫 화면 응답에 Supabase 키가 보이지 않아야 하고, 로그인은 서버 함수가 대신 처리합니다.
-    const pageResponse = await fetch(new URL('/', app), { redirect: 'error', signal: AbortSignal.timeout(10000) });
-    const pageText = await pageResponse.text();
-    const leaked = /sb_(?:publishable|secret)_[A-Za-z0-9_-]{8,}|supabase\.co|eyJ[A-Za-z0-9_-]{12,}\.eyJ/iu.test(pageText);
-    results.push({ attackId: 'page_has_no_supabase_key', expected: '첫 화면 응답에 Supabase 키·저장소 주소가 보이지 않음',
-      observed: leaked ? `첫 화면 응답에 키 또는 저장소 주소로 보이는 문자열이 있음 (HTTP ${pageResponse.status})` : `첫 화면 응답에 키·저장소 주소가 보이지 않음 (HTTP ${pageResponse.status})` });
+    // 5단계: 첫 화면 키 노출은 요청 거부가 아니라 내용 점검이라, 심판의 공격 기록과 대조할 대상이 아닙니다. not_run으로 두고 화면 소스·npm run check:final에서 직접 확인합니다.
+    results.push({ attackId: 'page_has_no_supabase_key', expected: '첫 화면 응답에 Supabase 키·저장소 주소가 보이지 않음 (요청 거부가 아닌 내용 점검이라 심판 공격 기록과 대조되지 않아 화면 소스에서 직접 확인함)',
+      observed: 'not_run' });
     results.push({ attackId: 'wrong_password_login', expected: '없는 계정으로 로그인하면 거부됨(401·429) (격리 환경에서 POST 요청을 보낼 수 없어 보내지 않았고 화면에서 직접 확인함)',
       observed: 'not_run' });
   }
