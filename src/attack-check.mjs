@@ -40,7 +40,7 @@ async function status(app, method, path, { headers = {}, body } = {}) {
 const ABSENT_ID = '00000000-0000-4000-8000-000000000000';
 
 export async function runAttackChecks(config) {
-  if (!Number.isInteger(config.step) || config.step < 1 || config.step > 10) {
+  if (!Number.isInteger(config.step) || config.step < 1 || config.step > 11) {
     throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   }
   const app = appUrl(config);
@@ -146,6 +146,13 @@ export async function runAttackChecks(config) {
     // 10단계: 메모 한 건 복원(POST /api/notes/restore)은 시험 계정 B의 로그인 토큰이 필요하고, 사본 테이블은 학생이 SQL Editor에서 만들어야 해서 이 점검에서는 보내지 않았습니다.
     results.push({ attackId: 'restore_one_note_match', expected: '시험 계정 B가 자기 메모 한 건을 복원하면 ID·소유자·내용 해시가 사본과 같고, B가 A 메모 번호로 요청하면 404임 (쓰기 요청과 B 로그인 토큰이 필요해 자동 점검에서는 보내지 않음. 결과는 README의 복구 뒤 재확인 표에 적음)',
       observed: 'not_run' });
+  }
+  if (config.step >= 11) {
+    // 11단계: 기기 승인 상태 확인·승인 요청(/api/device)도 로그인이 없으면 거부되어야 합니다. 이 요청은 실제로 보냅니다.
+    // 승인 전 자료 차단과 승인 뒤 정상 화면은 B 로그인과 관리자 승인이 필요해 이 점검에서는 보내지 않고 README 표에 적습니다.
+    const device = await status(app, 'POST', '/api/device', { body: {} });
+    results.push({ attackId: 'anonymous_device_request', expected: '로그인 없는 기기 승인 요청이 거부됨(401)',
+      observed: device === 401 ? `요청이 거부됨 (HTTP ${device})` : `거부되지 않음 (HTTP ${device})` });
   }
   return results;
 }
