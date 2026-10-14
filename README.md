@@ -573,7 +573,7 @@ update public.devices set status = 'approved', approved_at = now() where code = 
 ### 아직 남은 약점
 
 - 2026-10-14 첫 제출(커밋 `c44c6fa`)에서 「기기 키 저장」(`S11_KEY_EXPOSED`)이 실패했습니다. 그때는 로그인 토큰이 브라우저 저장소에 있었으므로 쿠키로 옮겼습니다. 이 변경 뒤의 판정 결과는 아직 모릅니다.
-- 쿠키 인증이라 다른 사이트에서 보낸 요청은 SameSite=Strict로 막지만, 별도 CSRF 토큰은 두지 않았습니다.
+- 쿠키 인증이라 다른 사이트에서 보낸 요청은 SameSite=Strict로 막지만, 별도 CSRF 토큰은 두지 않았습니다.
 - 승인은 관리자가 SQL Editor에서 확인 코드로 직접 바꿉니다. 승인 화면이나 승인자 확인(예: 다른 기기에서의 확인)은 없습니다.
 - 한 브라우저에는 기기 증표가 하나라서, A가 승인받은 브라우저에서 B가 승인을 요청하면 증표가 B 것으로 바뀌어 A는 다시 요청해야 합니다.
 - 판정기(`src/decider.mjs`)는 실제 API 앞에 연결되지 않았고, `devices` 표의 승인 상태를 판정 요청의 `deviceRegistered`로 넘기는 연결도 없습니다.
