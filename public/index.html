@@ -391,7 +391,7 @@
       if (device.status !== 'approved') {
         list.replaceChildren();
         showNotesError('');
-        showMessage('이 기기는 아직 승인되지 않아 자료를 표시하지 않습니다. 위에서 기기 승인을 요청해 주세요.');
+        showMessage(LOCKED_TEXT[device.status] ?? LOCKED_TEXT.none);
         return;
       }
       composer.hidden = false;
@@ -455,6 +455,13 @@
       approved: '승인됨 · 서버가 이 기기를 등록 기기로 확인했습니다',
       revoked: '회수됨 · 이 기기의 승인이 취소되었습니다',
       error: '확인 실패 · 서버에 연결하지 못해 자료를 열지 않습니다',
+    };
+    // 승인 전 자료 칸에 보이는 안내입니다(상태마다 다음에 할 일을 알려 줌). 어느 경우에도 자료는 표시하지 않습니다.
+    const LOCKED_TEXT = {
+      none: '이 기기는 아직 승인되지 않아 자료를 표시하지 않습니다. 위에서 기기 승인을 요청해 주세요.',
+      pending: '승인 대기 중이라 자료를 표시하지 않습니다. 관리자가 확인 코드로 승인한 뒤 「승인 상태 다시 확인」을 눌러 주세요.',
+      revoked: '이 기기의 승인이 회수되어 자료를 표시하지 않습니다. 관리자에게 문의해 주세요.',
+      error: '서버에서 기기 승인 상태를 확인하지 못해 자료를 표시하지 않습니다. 잠시 뒤 「승인 상태 다시 확인」을 눌러 주세요.',
     };
     function setDevice(next) {
       device = next;
