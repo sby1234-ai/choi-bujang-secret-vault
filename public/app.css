@@ -1,0 +1,48 @@
+:root { color-scheme: dark; font-family: system-ui, sans-serif; }
+body { margin: 0; min-height: 100vh; background: #101a28; color: #ecf4ff; }
+main { max-width: 760px; margin: 0 auto; padding: 44px 22px 64px; }
+.eyebrow { color: #8ad8df; font-size: 14px; font-weight: 700; letter-spacing: .08em; }
+h1 { margin: 16px 0; font-size: clamp(30px, 7vw, 48px); line-height: 1.2; }
+p { font-size: 17px; line-height: 1.7; color: #bfd0e5; }
+.notice { margin: 26px 0; padding: 18px; border: 1px solid #d07384; border-radius: 14px; color: #ffe3e8; background: #612a3544; }
+ul { list-style: none; display: grid; gap: 12px; padding: 0; }
+li { border: 1px solid #51667c; border-radius: 14px; padding: 17px 19px; background: #1a2a3d; }
+strong { display: block; font-size: 18px; margin-bottom: 5px; }
+li span { color: #bfd0e5; }
+.auth { margin: 26px 0; padding: 18px; border: 1px solid #51667c; border-radius: 14px; background: #1a2a3d; }
+.auth h2 { margin: 0 0 12px; font-size: 18px; }
+.auth form { display: grid; gap: 10px; }
+.auth label { display: grid; gap: 6px; font-size: 14px; color: #bfd0e5; }
+.auth input { padding: 11px 12px; border: 1px solid #51667c; border-radius: 10px; background: #101a28; color: #ecf4ff; font-size: 16px; }
+.auth button { padding: 11px 14px; border: 0; border-radius: 10px; background: #8ad8df; color: #101a28; font-size: 16px; font-weight: 700; cursor: pointer; }
+.auth button:disabled { opacity: .6; cursor: wait; }
+.auth .signed-in { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.auth .signed-in span { color: #bfd0e5; overflow-wrap: anywhere; }
+.auth-error { margin: 10px 0 0; padding: 10px 12px; border: 1px solid #d07384; border-radius: 10px; color: #ffe3e8; background: #612a3544; font-size: 15px; }
+.composer { margin: 18px 0; padding: 18px; border: 1px solid #51667c; border-radius: 14px; background: #1a2a3d; }
+.composer h2 { margin: 0 0 12px; font-size: 18px; }
+.composer form, .note-edit { display: grid; gap: 10px; }
+.composer label, .note-edit label { display: grid; gap: 6px; font-size: 14px; color: #bfd0e5; }
+.composer input, .composer textarea, .note-edit input, .note-edit textarea { padding: 11px 12px; border: 1px solid #51667c; border-radius: 10px; background: #101a28; color: #ecf4ff; font-size: 16px; font-family: inherit; }
+.composer textarea, .note-edit textarea { min-height: 84px; resize: vertical; }
+.composer button, .note-actions button, .note-edit button { padding: 9px 14px; border: 0; border-radius: 10px; background: #8ad8df; color: #101a28; font-size: 15px; font-weight: 700; cursor: pointer; }
+.note-actions button.secondary, .note-edit button.secondary { background: #2d4259; color: #ecf4ff; }
+.note-actions button.danger { background: #d07384; color: #101a28; }
+.composer button:disabled, .note-actions button:disabled, .note-edit button:disabled { opacity: .6; cursor: wait; }
+.note-actions, .note-edit .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+li .note-body { display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
+.notes-error { margin: 0 0 12px; padding: 10px 12px; border: 1px solid #d07384; border-radius: 10px; color: #ffe3e8; background: #612a3544; font-size: 15px; }
+.device { margin: 18px 0; padding: 18px; border: 1px solid #51667c; border-radius: 14px; background: #1a2a3d; }
+.device h2 { margin: 0 0 10px; font-size: 18px; }
+.device dl { display: grid; grid-template-columns: max-content 1fr; gap: 8px 14px; margin: 0; }
+.device dt { color: #8ad8df; font-size: 14px; font-weight: 700; }
+.device dd { margin: 0; color: #ecf4ff; font-size: 15px; overflow-wrap: anywhere; }
+.device p { margin: 12px 0 0; font-size: 14px; }
+.device .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.device button { padding: 9px 14px; border: 0; border-radius: 10px; background: #8ad8df; color: #101a28; font-size: 15px; font-weight: 700; cursor: pointer; }
+.device button.secondary { background: #2d4259; color: #ecf4ff; }
+.device button:disabled { opacity: .6; cursor: wait; }
+.device .code { font-family: ui-monospace, monospace; font-size: 18px; letter-spacing: .08em; color: #8ad8df; }
+.offline { margin: 18px 0; padding: 14px 16px; border: 1px solid #d0b073; border-radius: 12px; color: #fff1d6; background: #5a462244; font-size: 15px; }
+[hidden] { display: none !important; }
+  
