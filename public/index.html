@@ -51,6 +51,11 @@
     .device dt { color: #8ad8df; font-size: 14px; font-weight: 700; }
     .device dd { margin: 0; color: #ecf4ff; font-size: 15px; overflow-wrap: anywhere; }
     .device p { margin: 12px 0 0; font-size: 14px; }
+    .device .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .device button { padding: 9px 14px; border: 0; border-radius: 10px; background: #8ad8df; color: #101a28; font-size: 15px; font-weight: 700; cursor: pointer; }
+    .device button.secondary { background: #2d4259; color: #ecf4ff; }
+    .device button:disabled { opacity: .6; cursor: wait; }
+    .device .code { font-family: ui-monospace, monospace; font-size: 18px; letter-spacing: .08em; color: #8ad8df; }
     .offline { margin: 18px 0; padding: 14px 16px; border: 1px solid #d0b073; border-radius: 12px; color: #fff1d6; background: #5a462244; font-size: 15px; }
     [hidden] { display: none !important; }
   </style>
@@ -87,11 +92,18 @@
       <h2>이 기기의 승인 상태</h2>
       <dl>
         <dt>서버 승인</dt>
-        <dd id="device-approval">확인 전 · 아직 서버가 이 기기를 승인하지 않았습니다</dd>
+        <dd id="device-approval">로그인하면 서버에 이 기기의 승인 상태를 묻습니다</dd>
+        <dt id="device-code-label" hidden>확인 코드</dt>
+        <dd id="device-code" class="code" hidden></dd>
         <dt>앱 설치</dt>
         <dd id="device-install">브라우저 탭으로 열림</dd>
       </dl>
-      <p>기기 승인 여부는 서버와 판정기가 정합니다. 이 화면을 앱으로 설치했거나 앱 화면으로 열었다는 사실만으로는 기기 확인이 끝나지 않으며, 설치 표시는 승인에 쓰이지 않습니다. 기기 키나 승인 증표는 이 브라우저 저장소에 넣지 않습니다.</p>
+      <div class="row" id="device-actions" hidden>
+        <button id="device-request" type="button">이 기기 승인 요청</button>
+        <button id="device-refresh" type="button" class="secondary">승인 상태 다시 확인</button>
+      </div>
+      <p id="device-help" hidden>승인 요청은 이 기기를 "승인 대기"로 등록할 뿐이고 권한을 주지 않습니다. 자료실 관리자가 위 확인 코드를 보고 서버에서 승인한 뒤 「승인 상태 다시 확인」을 누르면 자료실이 열립니다.</p>
+      <p>기기 승인 여부는 서버와 판정기가 정합니다. 이 화면을 앱으로 설치했거나 앱 화면으로 열었다는 사실만으로는 기기 확인이 끝나지 않으며, 설치 표시는 승인에 쓰이지 않습니다. 기기 증표는 서버가 만든 값을 자바스크립트가 읽을 수 없는 보안 쿠키로만 두고, 이 브라우저 저장소(localStorage 등)에는 넣지 않습니다.</p>
     </section>
 
     <section class="composer" id="composer" hidden>
@@ -200,6 +212,7 @@
         const response = await postJson('/api/login', { email: emailInput.value.trim(), password: passwordInput.value });
         if (response.ok) {
           setSession(await response.json());
+          setDevice({ status: 'checking' });
           render();
           await loadNotes();
         } else {
@@ -223,6 +236,7 @@
         if (token) await postJson('/api/logout', {}, token);
       } catch { /* 서버에 닿지 못해도 이 브라우저의 세션은 지웁니다. */ }
       setSession(null);
+      setDevice({ status: 'signed_out' });
       render();
       await loadNotes();
       logoutButton.disabled = false;
@@ -269,6 +283,15 @@
         setSession(null);
         render();
         throw new Error('로그인이 확인되지 않았습니다. 다시 로그인해 주세요.');
+      }
+      if (response.status === 403) {
+        let body = null;
+        try { body = await response.json(); } catch { /* 본문이 없으면 일반 거부로 봅니다. */ }
+        if (body?.error === 'DEVICE_NOT_APPROVED') {
+          setDevice({ status: typeof body.device === 'string' ? body.device : 'none' });
+          throw new Error('승인된 기기에서만 자료를 볼 수 있습니다.');
+        }
+        throw new Error('요청이 거부되었습니다.');
       }
       if (response.status === 404) throw new Error('메모를 찾을 수 없습니다.');
       if (response.status === 400) throw new Error('입력을 확인해 주세요. 제목은 1~100자, 내용은 2000자 이하여야 합니다.');
@@ -355,12 +378,23 @@
 
     async function loadNotes() {
       const mine = ++loadId;
-      composer.hidden = !session;
+      composer.hidden = true;
       if (!session) {
+        setDevice({ status: 'signed_out' });
         showNotesError('');
         showMessage('로그인하면 가상 메모를 볼 수 있습니다.');
         return;
       }
+      // 서버가 이 기기를 승인된 기기로 확인하기 전에는 보호 자료를 요청하지도, 보여 주지도 않습니다.
+      if (device.status !== 'approved') await checkDevice();
+      if (mine !== loadId) return;
+      if (device.status !== 'approved') {
+        list.replaceChildren();
+        showNotesError('');
+        showMessage('이 기기는 아직 승인되지 않아 자료를 표시하지 않습니다. 위에서 기기 승인을 요청해 주세요.');
+        return;
+      }
+      composer.hidden = false;
       try {
         const notes = await api('GET', '/api/notes');
         if (mine !== loadId) return;
@@ -372,7 +406,8 @@
         list.replaceChildren(...notes.map(noteItem));
       } catch (error) {
         if (mine === loadId) {
-          composer.hidden = !session;
+          composer.hidden = !(session && device.status === 'approved');
+          if (device.status !== 'approved') list.replaceChildren();
           showMessage(error.message);
         }
       }
@@ -398,8 +433,69 @@
     window.addEventListener('storage', (event) => {
       if (event.key !== SESSION_KEY) return;
       session = readStored();
+      setDevice({ status: session ? 'checking' : 'signed_out' });
       render();
       loadNotes();
+    });
+
+    // 기기 승인: 상태는 서버(/api/device)가 정합니다. 화면은 서버가 돌려준 상태만 보여 주며, 단추를 눌렀다고 승인된 것으로 보지 않습니다.
+    const deviceApproval = document.querySelector('#device-approval');
+    const deviceCodeLabel = document.querySelector('#device-code-label');
+    const deviceCode = document.querySelector('#device-code');
+    const deviceActions = document.querySelector('#device-actions');
+    const deviceRequest = document.querySelector('#device-request');
+    const deviceRefresh = document.querySelector('#device-refresh');
+    const deviceHelp = document.querySelector('#device-help');
+    let device = { status: 'signed_out' };
+    const DEVICE_TEXT = {
+      signed_out: '로그인하면 서버에 이 기기의 승인 상태를 묻습니다',
+      checking: '서버에 확인하는 중입니다',
+      none: '미등록 · 이 기기는 승인 요청 전입니다',
+      pending: '승인 대기 · 서버가 아직 이 기기를 승인하지 않았습니다',
+      approved: '승인됨 · 서버가 이 기기를 등록 기기로 확인했습니다',
+      revoked: '회수됨 · 이 기기의 승인이 취소되었습니다',
+      error: '확인 실패 · 서버에 연결하지 못해 자료를 열지 않습니다',
+    };
+    function setDevice(next) {
+      device = next;
+      deviceApproval.textContent = DEVICE_TEXT[device.status] ?? DEVICE_TEXT.none;
+      const showCode = device.status === 'pending' && typeof device.code === 'string';
+      deviceCode.textContent = showCode ? device.code : '';
+      deviceCode.hidden = deviceCodeLabel.hidden = !showCode;
+      const canAct = Boolean(session) && ['none', 'pending', 'revoked', 'error'].includes(device.status);
+      deviceActions.hidden = !canAct;
+      deviceRequest.hidden = device.status !== 'none';
+      deviceHelp.hidden = !(canAct && device.status !== 'revoked');
+      if (device.status !== 'approved') composer.hidden = true;
+    }
+    async function checkDevice() {
+      if (!session) { setDevice({ status: 'signed_out' }); return; }
+      setDevice({ status: 'checking' });
+      try {
+        const result = await api('GET', '/api/device');
+        setDevice(result && typeof result.status === 'string' ? result : { status: 'error' });
+      } catch {
+        if (device.status === 'checking') setDevice({ status: session ? 'error' : 'signed_out' });
+      }
+    }
+    deviceRequest.addEventListener('click', async () => {
+      deviceRequest.disabled = true;
+      showNotesError('');
+      try {
+        const result = await api('POST', '/api/device');
+        setDevice(result && typeof result.status === 'string' ? result : { status: 'error' });
+      } catch (error) {
+        showNotesError(error.message);
+      } finally {
+        deviceRequest.disabled = false;
+      }
+      await loadNotes();
+    });
+    deviceRefresh.addEventListener('click', async () => {
+      deviceRefresh.disabled = true;
+      await checkDevice();
+      await loadNotes();
+      deviceRefresh.disabled = false;
     });
 
     // 설치형 웹앱 표시: 앱 화면(standalone)으로 열렸는지만 보여 줍니다. 이 값은 기기 승인과 관계없고 서버에 보내지 않습니다.

@@ -43,7 +43,7 @@ export function methodNotAllowed(response, allowed) {
   return reply(response, 405, { error: 'METHOD_NOT_ALLOWED' });
 }
 
-// 로그인한 요청이면 { userId }를, 아니면 이미 거부 응답을 보내고 null을 돌려줍니다.
+// 로그인한 요청이면 { userId, kind }를(kind는 'student' 또는 'judge'), 아니면 이미 거부 응답을 보내고 null을 돌려줍니다.
 export async function requireLogin(request, response) {
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SECRET_KEY) {
     reply(response, 500, { error: 'SERVER_NOT_CONFIGURED' });
@@ -63,7 +63,7 @@ export async function requireLogin(request, response) {
     reply(response, 401, { error: 'LOGIN_REQUIRED' });
     return null;
   }
-  return { userId: login.userId };
+  return { userId: login.userId, kind: login.kind };
 }
 
 export function notes() {

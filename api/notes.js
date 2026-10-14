@@ -1,6 +1,7 @@
 // 로그인한 사용자의 메모 목록(GET)과 추가(POST)입니다.
 // 목록은 서버가 확인한 사용자 ID의 메모만 돌려주고, 추가할 때 owner_id는 항상 그 ID로 저장합니다(본문의 owner_id는 쓰지 않습니다).
 import { failed, logDenied, methodNotAllowed, notes, ownsRow, readNoteInput, rejectInput, reply, requireLogin, toApi } from './_lib/notes-api.js';
+import { requireApprovedDevice } from './_lib/device-api.js';
 
 export default async function handler(request, response) {
   if (request.method !== 'GET' && request.method !== 'POST') {
@@ -8,6 +9,8 @@ export default async function handler(request, response) {
   }
   const login = await requireLogin(request, response);
   if (!login) return undefined;
+  // 11단계: 서버가 이 브라우저를 승인된 기기로 확인한 뒤에만 메모를 다룹니다(승인 전 403).
+  if (!(await requireApprovedDevice(request, response, login, reply))) return undefined;
 
   try {
     if (request.method === 'GET') {

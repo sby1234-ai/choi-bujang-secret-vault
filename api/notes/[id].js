@@ -3,6 +3,7 @@
 // 남의 메모는 없는 메모와 똑같이 404로 답해서 그 번호가 존재하는지도 알려 주지 않습니다.
 // 수정은 기존 행의 소유자가 본인일 때만 되고, 새 행의 owner_id도 본인 ID로 고정합니다(소유자 변경 불가).
 import { failed, isUuid, logDenied, methodNotAllowed, notes, ownsRow, readNoteInput, rejectInput, reply, requireLogin, toApi } from '../_lib/notes-api.js';
+import { requireApprovedDevice } from '../_lib/device-api.js';
 
 export default async function handler(request, response) {
   if (!['GET', 'PUT', 'DELETE'].includes(request.method)) {
@@ -10,6 +11,8 @@ export default async function handler(request, response) {
   }
   const login = await requireLogin(request, response);
   if (!login) return undefined;
+  // 11단계: 서버가 이 브라우저를 승인된 기기로 확인한 뒤에만 메모를 다룹니다(승인 전 403).
+  if (!(await requireApprovedDevice(request, response, login, reply))) return undefined;
 
   const id = request.query?.id;
   if (!isUuid(id)) return reply(response, 404, { error: 'NOT_FOUND' });

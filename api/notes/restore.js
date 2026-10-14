@@ -3,6 +3,7 @@
 // 로그인한 본인의 메모 사본만 되살릴 수 있고(소유자는 검증된 토큰에서만 얻습니다), 본문에는 메모 번호(id) 하나만 받고, 다른 항목은 400입니다.
 // 사본의 ID·소유자·내용 해시를 대조하고, 다른 메모는 건드리지 않으며, 감사 기록은 시도마다 한 줄씩 덧붙입니다(거부된 시도 포함).
 import { reply, requireLogin } from '../_lib/notes-api.js';
+import { requireApprovedDevice } from '../_lib/device-api.js';
 import { restoreRepo } from '../_lib/restore-repo.js';
 import { readRestoreInput, restoreNote } from '../../src/restore-note.mjs';
 
@@ -18,6 +19,8 @@ export default async function handler(request, response) {
   response.setHeader('X-Resource-Id', RESOURCE_ID);
   const login = await requireLogin(request, response);
   if (!login) return undefined;
+  // 11단계: 승인된 기기에서만 복원합니다(승인 전 403).
+  if (!(await requireApprovedDevice(request, response, login, reply))) return undefined;
 
   const { input, error } = readRestoreInput(request.body);
   if (error) return reply(response, 400, { error: 'invalid_restore_request' });
