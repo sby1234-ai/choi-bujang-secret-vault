@@ -1,0 +1,21 @@
+.ops-card { margin: 18px 0; padding: 18px; border: 1px solid #51667c; border-radius: 14px; background: #1a2a3d; }
+.ops-card h2 { margin: 0 0 12px; font-size: 19px; }
+.ops-card h3 { margin: 14px 0 6px; font-size: 15px; color: #8ad8df; }
+.ops-card table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.ops-card th, .ops-card td { text-align: left; padding: 6px 8px; border-top: 1px solid #2d4259; overflow-wrap: anywhere; }
+.ops-card th { color: #bfd0e5; font-weight: 600; }
+.ops-card p, .ops-card li { font-size: 15px; margin: 6px 0; }
+.ops-card ul { list-style: disc; padding-left: 20px; display: block; }
+.ops-card ul li { border: 0; padding: 0; background: none; }
+.tag { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 13px; font-weight: 700; margin-right: 6px; }
+.tag.executed { background: #1f5a4c; color: #d6fff3; }
+.tag.not_run { background: #5a4622; color: #fff1d6; }
+.tag.error { background: #612a35; color: #ffe3e8; }
+.check { font-size: 14px; }
+.check.ok { color: #8fe3b0; }
+.check.bad { color: #ffb3c0; }
+.state { padding: 12px 14px; border: 1px solid #51667c; border-radius: 12px; background: #1a2a3d; }
+.back { color: #8ad8df; margin-right: 12px; }
+#reload { padding: 8px 12px; border: 0; border-radius: 10px; background: #2d4259; color: #ecf4ff; font-weight: 700; cursor: pointer; }
+.foot { font-size: 13px; color: #8fa3ba; }
+code { font-family: ui-monospace, monospace; }

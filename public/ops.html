@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BYTE BACK | 탈환 작전실</title>
+  <meta name="theme-color" content="#101a28">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/icon-192.png" type="image/png">
+  <link rel="stylesheet" href="/app.css">
+  <link rel="stylesheet" href="/ops.css">
+</head>
+<body>
+  <main>
+    <div class="eyebrow">BYTE BACK · 12단계 탈환 작전실</div>
+    <h1>탈환 작전실</h1>
+    <p>판정기 규칙, 탐지, 회수, 복구 버전을 서버(<code>GET /api/ops</code>)가 이번 요청에서 실제로 실행·조회한 결과로만 보여 줍니다. 연결이 없어 실행하지 않은 항목은 <strong class="tag not_run">미실행</strong>으로 따로 표시합니다. 이 화면의 문구는 심판의 판정이 아닙니다.</p>
+    <p><a class="back" href="/">← 내 자료실로</a> <button id="reload" type="button">다시 불러오기</button></p>
+    <p id="ops-state" class="state" role="status">서버에 요약을 요청하는 중입니다.</p>
+    <div id="ops" hidden>
+      <section class="ops-card" id="sec-decider"><h2>판정기 규칙</h2></section>
+      <section class="ops-card" id="sec-detection"><h2>탐지 사건</h2></section>
+      <section class="ops-card" id="sec-revocation"><h2>회수 상태</h2></section>
+      <section class="ops-card" id="sec-recovery"><h2>복구 버전</h2></section>
+      <p class="foot" id="ops-time"></p>
+    </div>
+  </main>
+  <script type="module" src="/ops.js"></script>
+</body>
+</html>
