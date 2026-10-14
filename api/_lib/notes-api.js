@@ -52,7 +52,8 @@ export async function requireLogin(request, response) {
   let login;
   try {
     verifier ??= createLoginVerifier({ config, supabaseSecretKey: process.env.SUPABASE_SECRET_KEY });
-    login = await verifier(request.headers.authorization);
+    // 11단계: 화면은 토큰을 HttpOnly 쿠키로만 보냅니다. Authorization 머리글이 있으면 그것을, 없으면 접속 쿠키를 같은 검사기로 검사합니다.
+    login = await verifier(request.headers.authorization ?? sessionAuthorization(request));
   } catch {
     console.error('login verifier setup failed');
     reply(response, 500, { error: 'SERVER_NOT_CONFIGURED' });
@@ -64,6 +65,20 @@ export async function requireLogin(request, response) {
     return null;
   }
   return { userId: login.userId, kind: login.kind };
+}
+
+// 접속 쿠키(__Host-byteback-access)를 'Bearer <토큰>' 모양으로 바꿉니다. 쿠키가 없거나 모양이 이상하면 undefined입니다.
+function sessionAuthorization(request) {
+  const header = request.headers?.cookie;
+  if (typeof header !== 'string') return undefined;
+  for (const part of header.split(';')) {
+    const [key, ...rest] = part.trim().split('=');
+    if (key === '__Host-byteback-access') {
+      const value = rest.join('=');
+      return /^[A-Za-z0-9._~+/=-]{1,4096}$/u.test(value) ? `Bearer ${value}` : undefined;
+    }
+  }
+  return undefined;
 }
 
 export function notes() {

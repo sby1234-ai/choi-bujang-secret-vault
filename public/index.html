@@ -103,7 +103,7 @@
         <button id="device-refresh" type="button" class="secondary">승인 상태 다시 확인</button>
       </div>
       <p id="device-help" hidden>승인 요청은 이 기기를 "승인 대기"로 등록할 뿐이고 권한을 주지 않습니다. 자료실 관리자가 위 확인 코드를 보고 서버에서 승인한 뒤 「승인 상태 다시 확인」을 누르면 자료실이 열립니다.</p>
-      <p>기기 승인 여부는 서버와 판정기가 정합니다. 이 화면을 앱으로 설치했거나 앱 화면으로 열었다는 사실만으로는 기기 확인이 끝나지 않으며, 설치 표시는 승인에 쓰이지 않습니다. 기기 증표는 서버가 만든 값을 자바스크립트가 읽을 수 없는 보안 쿠키로만 두고, 이 브라우저 저장소(localStorage 등)에는 넣지 않습니다.</p>
+      <p>기기 승인 여부는 서버와 판정기가 정합니다. 이 화면을 앱으로 설치했거나 앱 화면으로 열었다는 사실만으로는 기기 확인이 끝나지 않으며, 설치 표시는 승인에 쓰이지 않습니다. 기기 증표는 서버가 만든 값을 자바스크립트가 읽을 수 없는 보안 쿠키로만 두고, 이 브라우저 저장소에는 넣지 않습니다. 로그인 토큰도 같은 방식의 쿠키로만 두어 화면에서 읽을 수 없습니다.</p>
     </section>
 
     <section class="composer" id="composer" hidden>
@@ -123,8 +123,9 @@
   </main>
   <script type="module">
     // 이 화면에는 저장소 주소·키가 없습니다. 로그인과 메모 요청은 모두 같은 사이트의 /api/... 서버 함수로만 보냅니다.
-    const SESSION_KEY = 'byteback-session';
-    let session = null; // { access_token, refresh_token, expires_at, email }
+    // 11단계: 로그인 토큰과 기기 증표는 서버가 HttpOnly 쿠키로만 두므로 이 화면의 자바스크립트는 읽을 수 없습니다.
+    // 브라우저 저장소는 쓰지 않고, 화면은 이메일과 만료 시각만 메모리에 둡니다.
+    let session = null; // { expires_at, email } — 토큰 없음
 
     const form = document.querySelector('#login-form');
     const emailInput = document.querySelector('#email');
@@ -153,21 +154,8 @@
       return reasons[code] ?? '로그인에 실패했습니다.';
     }
 
-    // 세션은 이 브라우저에만 저장합니다. 저장소를 못 쓰는 환경에서도 화면은 동작합니다.
-    function readStored() {
-      try {
-        const saved = JSON.parse(localStorage.getItem(SESSION_KEY));
-        if (saved && typeof saved.access_token === 'string' && typeof saved.refresh_token === 'string') return saved;
-      } catch { /* 저장된 세션이 없거나 읽을 수 없으면 로그아웃 상태입니다. */ }
-      return null;
-    }
-
     function setSession(next) {
-      session = next;
-      try {
-        if (next) localStorage.setItem(SESSION_KEY, JSON.stringify(next));
-        else localStorage.removeItem(SESSION_KEY);
-      } catch { /* 저장 실패는 무시합니다. */ }
+      session = next && typeof next.expires_at === 'number' ? { expires_at: next.expires_at, email: next.email ?? null } : null;
     }
 
     function render() {
@@ -178,18 +166,19 @@
       signedInText.textContent = loggedIn ? `${session.email ?? '알 수 없는 계정'} 계정으로 로그인했습니다.` : '';
     }
 
-    async function postJson(path, payload, token) {
-      const headers = { 'Content-Type': 'application/json' };
-      if (token) headers.Authorization = `Bearer ${token}`;
-      return fetch(path, { method: 'POST', headers, cache: 'no-store', body: JSON.stringify(payload ?? {}) });
+    async function postJson(path, payload) {
+      return fetch(path, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+        cache: 'no-store', body: JSON.stringify(payload ?? {}),
+      });
     }
 
-    // 만료가 가까우면 서버 함수로 토큰을 새로 받습니다. 한 번에 한 요청만 보냅니다.
+    // 만료가 가까우면 서버 함수가 갱신 쿠키로 토큰을 새로 받습니다(토큰은 화면에 오지 않음). 한 번에 한 요청만 보냅니다.
     let refreshing = null;
     function refreshSession() {
       refreshing ??= (async () => {
         try {
-          const response = await postJson('/api/refresh', { refresh_token: session?.refresh_token });
+          const response = await postJson('/api/refresh', {});
           if (response.ok) setSession(await response.json());
           else if (response.status === 401) setSession(null);
         } catch { /* 네트워크 오류면 지금 세션을 그대로 둡니다. */ }
@@ -231,10 +220,9 @@
     logoutButton.addEventListener('click', async () => {
       showError('');
       logoutButton.disabled = true;
-      const token = session?.access_token;
       try {
-        if (token) await postJson('/api/logout', {}, token);
-      } catch { /* 서버에 닿지 못해도 이 브라우저의 세션은 지웁니다. */ }
+        await postJson('/api/logout', {});
+      } catch { /* 서버에 닿지 못해도 이 화면의 로그인 표시는 지웁니다. */ }
       setSession(null);
       setDevice({ status: 'signed_out' });
       render();
@@ -262,22 +250,19 @@
       list.replaceChildren(item);
     }
 
-    // 로그인 토큰은 Authorization 헤더로만 보냅니다. 401이면 한 번 갱신해 보고 다시 보냅니다.
+    // 로그인 토큰은 같은 사이트의 HttpOnly 쿠키로만 함께 갑니다(화면이 토큰을 붙이지 않음). 401이면 한 번 갱신해 보고 다시 보냅니다.
     async function api(method, path, payload) {
       let current = await currentSession();
       if (!current) throw new Error('로그인이 필요합니다.');
-      const send = (token) => {
-        const headers = { Authorization: `Bearer ${token}` };
-        if (payload !== undefined) headers['Content-Type'] = 'application/json';
-        return fetch(path, {
-          method, headers, cache: 'no-store',
-          body: payload === undefined ? undefined : JSON.stringify(payload),
-        });
-      };
-      let response = await send(current.access_token);
+      const send = () => fetch(path, {
+        method, credentials: 'same-origin', cache: 'no-store',
+        headers: payload === undefined ? {} : { 'Content-Type': 'application/json' },
+        body: payload === undefined ? undefined : JSON.stringify(payload),
+      });
+      let response = await send();
       if (response.status === 401) {
         current = await refreshSession();
-        if (current) response = await send(current.access_token);
+        if (current) response = await send();
       }
       if (response.status === 401) {
         setSession(null);
@@ -429,15 +414,6 @@
       }
     });
 
-    // 다른 탭에서 로그인·로그아웃하면 이 탭도 따라갑니다.
-    window.addEventListener('storage', (event) => {
-      if (event.key !== SESSION_KEY) return;
-      session = readStored();
-      setDevice({ status: session ? 'checking' : 'signed_out' });
-      render();
-      loadNotes();
-    });
-
     // 기기 승인: 상태는 서버(/api/device)가 정합니다. 화면은 서버가 돌려준 상태만 보여 주며, 단추를 눌렀다고 승인된 것으로 보지 않습니다.
     const deviceApproval = document.querySelector('#device-approval');
     const deviceCodeLabel = document.querySelector('#device-code-label');
@@ -529,7 +505,9 @@
       navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
     }
 
-    session = readStored();
+    // 화면을 다시 열면 갱신 쿠키로 로그인 상태를 서버에 묻습니다(쿠키가 없거나 만료면 로그아웃 상태).
+    session = null;
+    await refreshSession();
     render();
     await loadNotes();
   </script>

@@ -1,5 +1,6 @@
 // POST /api/login — 이메일·비밀번호 로그인을 서버가 대신 처리합니다.
-import { loginFailed, publicAuthClient, readJsonBody, toSession, unavailable } from './_lib/auth-api.js';
+// 11단계: 토큰은 HttpOnly 쿠키로만 보내고, 응답 본문에는 만료 시각과 이메일만 담습니다.
+import { loginFailed, publicAuthClient, readJsonBody, setSessionCookies, toSession, unavailable } from './_lib/auth-api.js';
 import { methodNotAllowed, reply } from './_lib/notes-api.js';
 
 export default async function handler(request, response) {
@@ -17,6 +18,7 @@ export default async function handler(request, response) {
   try {
     const { data: result, error } = await client.auth.signInWithPassword({ email, password });
     if (error || !result?.session) return loginFailed(response, error);
+    setSessionCookies(response, result.session);
     return reply(response, 200, toSession(result.session));
   } catch {
     return unavailable(response);

@@ -26,10 +26,41 @@ export function readJsonBody(request) {
   return data && typeof data === 'object' && !Array.isArray(data) ? data : null;
 }
 
-// 화면에 필요한 값만 돌려줍니다.
+// 11단계: 로그인 토큰(접속·갱신)은 응답 본문으로 화면에 주지 않고, 자바스크립트가 읽을 수 없는 쿠키로만 둡니다.
+// HttpOnly·Secure·SameSite=Strict, 이름 앞의 __Host-는 이 사이트 주소에만 묶인다는 뜻입니다. 브라우저 저장소(localStorage 등)에는 넣지 않습니다.
+export const ACCESS_COOKIE = '__Host-byteback-access';
+export const REFRESH_COOKIE = '__Host-byteback-refresh';
+const REFRESH_MAX_AGE = 60 * 60 * 24 * 30;
+const COOKIE_VALUE = /^[A-Za-z0-9._~+/=-]{1,4096}$/u;
+const cookie = (name, value, maxAge) => `${name}=${value}; Path=/; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Strict`;
+
+export function readCookie(request, name) {
+  const header = request.headers?.cookie;
+  if (typeof header !== 'string') return null;
+  for (const part of header.split(';')) {
+    const [key, ...rest] = part.trim().split('=');
+    if (key === name) {
+      const value = rest.join('=');
+      return COOKIE_VALUE.test(value) ? value : null;
+    }
+  }
+  return null;
+}
+
+export function setSessionCookies(response, session) {
+  const accessAge = Math.max(60, Math.min(3600, Number(session.expires_at) - Math.floor(Date.now() / 1000)) || 3600);
+  response.setHeader('Set-Cookie', [
+    cookie(ACCESS_COOKIE, session.access_token, accessAge),
+    cookie(REFRESH_COOKIE, session.refresh_token, REFRESH_MAX_AGE),
+  ]);
+}
+
+export function clearSessionCookies(response) {
+  response.setHeader('Set-Cookie', [cookie(ACCESS_COOKIE, '', 0), cookie(REFRESH_COOKIE, '', 0)]);
+}
+
+// 화면에는 토큰 없이 만료 시각과 이메일만 돌려줍니다.
 export const toSession = (session) => ({
-  access_token: session.access_token,
-  refresh_token: session.refresh_token,
   expires_at: session.expires_at,
   email: session.user?.email ?? null,
 });
