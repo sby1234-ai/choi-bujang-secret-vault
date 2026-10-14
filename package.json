@@ -15,7 +15,8 @@
     "policy:diff": "node scripts/policy-diff.mjs",
     "policy:restore": "node scripts/policy-restore.mjs",
     "test:restore": "node --test test/policy-restore.test.mjs test/restore-note.test.mjs",
-    "test:ops": "node --test test/ops-summary.test.mjs"
+    "test:ops": "node --test test/ops-summary.test.mjs",
+    "check:final": "node scripts/final-check.mjs"
   },
   "engines": {
     "node": ">=22"

@@ -35,11 +35,11 @@ function table(headers, rows) {
 const reset = (id, title) => { const s = document.querySelector(id); s.replaceChildren(el('h2', title)); return s; };
 const count = (list, key, value) => list.filter((item) => item[key] === value).length;
 
-function practice(sec, title, block, note) {
+function practice(sec, title, block, note, noun = '가상 요청') {
   sec.append(el('h3', title));
   if (block?.status !== 'executed' || !block.practice) { sec.append(line(block?.status ?? 'error', ' 연습을 실행하지 못했습니다.')); return; }
   const { total, passed, results } = block.practice;
-  sec.append(line('executed', ` 배포 서버가 이번 요청에서 가상 요청 ${total}건을 실행했고 ${passed}건이 기대대로 나왔습니다. ${note}`));
+  sec.append(line('executed', ` 배포 서버가 이번 요청에서 ${noun} ${total}건을 실행했고 ${passed}건이 기대대로 나왔습니다. ${note}`));
   sec.append(table(['가상 요청', '결과'], results.map((r) => [r.name, r.passed ? '기대대로' : '기대와 다름'])));
   sec.append(check(results.length === total && count(results, 'passed', true) === passed, `연습 ${results.length}건을 다시 셈`));
 }
@@ -55,7 +55,7 @@ function render(data) {
 
   const t = reset('#sec-detection', '탐지 사건');
   t.append(el('h3', '실제 접속 사건'), line(data.detection?.live?.status ?? 'not_run', ` ${data.detection?.live?.reason ?? ''}`));
-  practice(t, '가상 사건 연습(폭주 조회 120건 초과 시 회수 제안)', data.detection, '실제 사건이나 실제 회수가 아닙니다.');
+  practice(t, '가상 사건 연습(폭주 조회 120건 초과 시 회수 제안)', data.detection, '실제 사건이나 실제 회수가 아닙니다.', '가상 사건');
 
   const r = reset('#sec-revocation', '회수 상태');
   const dev = data.revocation?.devices;
