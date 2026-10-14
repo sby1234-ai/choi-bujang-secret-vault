@@ -568,7 +568,7 @@ update public.devices set status = 'approved', approved_at = now() where code = 
 | 승인 요청 | `승인 대기`와 확인 코드가 나옴 | 버튼만으로 자료가 열리지 않음 | 2026-10-14 B 계정 화면: `승인 대기`·확인 코드 표시, 메모 없음 |
 | 관리자 승인 | SQL Editor에서 그 코드가 `approved` | — | 2026-10-14 SQL: 그 코드 한 줄이 `approved` |
 | 승인 뒤 | `GET /api/notes`가 `200`, 메모 목록·추가·수정·삭제가 전처럼 됨 | 없는 메모 번호 `404`, 토큰 없는 요청 `401` | 2026-10-14 B 탭 콘솔(토큰을 브라우저 저장소에 두던 때): 내 목록 `200`, 없는 번호 `404`, 토큰 없음 `401`. 승인 뒤 화면에서 추가·수정·삭제는 미실행 |
-| 토큰 보관 | 로그인 뒤 개발자 도구 Application의 Local Storage·Session Storage가 비어 있고, 콘솔 `document.cookie`에 `byteback` 쿠키가 보이지 않음(HttpOnly), 새로고침 뒤에도 로그인 유지 | 화면 코드·브라우저 저장소에 토큰·기기 증표가 없음 | 미실행(쿠키 이전 배포 뒤 확인 예정) |
+| 토큰 보관 | 로그인 뒤 개발자 도구 Application의 Local Storage·Session Storage가 비어 있고, 콘솔 `document.cookie`에 `byteback` 쿠키가 보이지 않음(HttpOnly), 새로고침 뒤에도 로그인 유지 | 화면 코드·브라우저 저장소에 토큰·기기 증표가 없음 | 2026-10-14 커밋 `71f00da` 배포 뒤 B 탭 확인: Local Storage 비어 있음, `byteback` 쿠키 세 개 모두 HttpOnly·Secure, 새로고침 뒤 로그인 유지 |
 | 직접 점검 | `npm run bundle`의 `anonymous_device_request`가 `401` | — | 아래 저장점의 `npm run bundle` 결과를 봅니다 |
 
 위 결과는 제가 직접 보낸 요청의 기록이며 심판의 판정이 아닙니다.
@@ -577,7 +577,7 @@ update public.devices set status = 'approved', approved_at = now() where code = 
 
 - 2026-10-14 첫 제출(커밋 `c44c6fa`)에서 「기기 키 저장」(`S11_KEY_EXPOSED`)이 실패했습니다. 그때는 로그인 토큰이 브라우저 저장소에 있었으므로 쿠키로 옮겼습니다. 이 변경 뒤의 판정 결과는 아직 모릅니다.
 - 쿠키 인증이라 다른 사이트에서 보낸 요청은 SameSite=Strict로 막지만, 별도 CSRF 토큰은 두지 않았습니다.
-- 토큰을 쿠키로 옮긴 커밋 `9b6ead5`는 두 번 제출 모두 「화면 묶음이 잘려 기기 키 여부를 가를 수 없음」(`UNV_AMBIGUOUS`)으로 판정되지 않았습니다. 첫 화면 한 파일(약 26KB)에 스타일과 스크립트가 함께 있었으므로, 화면을 `public/index.html`(약 4KB), `public/app.css`, `public/app.js`로 나누고 스크립트의 설명 주석을 줄였습니다. 화면 묶음을 심판이 어디까지 읽는지는 알지 못하며, 이 변경 뒤의 판정 결과는 아직 모릅니다.
+- 토큰을 쿠키로 옮긴 커밋 `9b6ead5`는 두 번 제출 모두 「화면 묶음이 잘려 기기 키 여부를 가를 수 없음」(`UNV_AMBIGUOUS`)으로 판정되지 않았습니다. 첫 화면 한 파일(약 26KB)에 스타일과 스크립트가 함께 있었으므로, 화면을 `public/index.html`(약 4KB), `public/app.css`, `public/app.js`로 나누고 스크립트의 설명 주석을 줄인 커밋 `71f00da`를 제출해 11단계를 만점으로 통과했습니다. 같은 커밋이 두 번 판정 불가였다가 통과했을 가능성도 있어, 화면 크기가 유일한 원인이라고 단정하지는 않습니다. 줄였습니다. 화면 묶음을 심판이 어디까지 읽는지는 알지 못하며, 이 변경 뒤의 판정 결과는 아직 모릅니다.
 - 승인은 관리자가 SQL Editor에서 확인 코드로 직접 바꿉니다. 승인 화면이나 승인자 확인(예: 다른 기기에서의 확인)은 없습니다.
 - 한 브라우저에는 기기 증표가 하나라서, A가 승인받은 브라우저에서 B가 승인을 요청하면 증표가 B 것으로 바뀌어 A는 다시 요청해야 합니다.
 - 판정기(`src/decider.mjs`)는 실제 API 앞에 연결되지 않았고, `devices` 표의 승인 상태를 판정 요청의 `deviceRegistered`로 넘기는 연결도 없습니다.
